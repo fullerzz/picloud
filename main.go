@@ -29,6 +29,7 @@ type UploadedFiles struct {
 	Files []FileMetadata `json:"files"`
 }
 
+// global var initialized before API to store info on the server's uploaded files
 var uploadedFiles UploadedFiles
 
 func loadFileMetadata() UploadedFiles {
@@ -52,6 +53,11 @@ func writeFileMetadata() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// buildLink returns a link to be used in the FileMetadata struct on initialization
+func buildLink(rawFilename string) string {
+	return fmt.Sprintf("http://localhost:1234/file/%s", url.QueryEscape(rawFilename))
 }
 
 // e.POST("/file/upload", saveFile)
@@ -79,10 +85,9 @@ func saveFile(c echo.Context) error {
 	}
 
 	// TODO: Update Tags and Link fields
-	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: []string{}, Link: file.Filename})
+	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: []string{}, Link: buildLink(file.Filename)})
 	go writeFileMetadata()
-
-	return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully with fields: %s!!</p>", file.Filename, c.FormValue("title")))
+	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
 
 // e.GET("/file/:name", getFile)
@@ -94,13 +99,7 @@ func getFile(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	// load file into memory and return
-	file, err := os.ReadFile(name)
-	if err != nil {
-		return err
-	}
-
-	return c.File(string(file))
+	return c.File(name)
 }
 
 func listFiles(c echo.Context) error {
