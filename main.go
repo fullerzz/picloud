@@ -43,7 +43,10 @@ func loadFileMetadata() UploadedFiles {
 		panic(err)
 	}
 	var files UploadedFiles
-	json.Unmarshal(data, &files)
+	err = json.Unmarshal(data, &files)
+	if err != nil {
+		panic(err)
+	}
 	return files
 }
 
