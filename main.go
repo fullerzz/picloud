@@ -62,6 +62,11 @@ func buildLink(rawFilename string) string {
 
 // e.POST("/file/upload", saveFile)
 func saveFile(c echo.Context) error {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+	// Extract file from form
 	file, err := c.FormFile("file")
 	if err != nil {
 		return err
@@ -83,9 +88,9 @@ func saveFile(c echo.Context) error {
 	if _, err = io.Copy(dst, src); err != nil {
 		return err
 	}
-
-	// TODO: Update Tags and Link fields
-	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: []string{}, Link: buildLink(file.Filename)})
+	// Extract tags from form
+	tags := form.Value["tags"]
+	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: tags, Link: buildLink(file.Filename)})
 	go writeFileMetadata()
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
