@@ -12,6 +12,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+type Tags struct {
+	Tags []string `json:"tags"`
+}
+
 type FileUpload struct {
 	Name    string   `json:"name"`
 	Size    int      `json:"size"`
@@ -95,6 +99,32 @@ func saveFile(c echo.Context) error {
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
 
+// e.PATCH("/file/:name", updateFileTags)
+func updateFileTags(c echo.Context) error {
+	// extract tags from request
+	var tags Tags
+	err := c.Bind(&tags)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid request")
+	}
+	// decode the name
+	encodedName := c.Param("name")
+	name, err := url.QueryUnescape(encodedName)
+	if err != nil {
+		return err
+	}
+	// get the file from the uploadedFiles
+	var file *FileMetadata
+	for i, f := range uploadedFiles.Files {
+		if f.Name == name {
+			file = &uploadedFiles.Files[i]
+			break
+		}
+	}
+	file.Tags = append(file.Tags, tags.Tags...)
+	return c.String(http.StatusOK, "File updated")
+}
+
 // e.GET("/file/:name", getFile)
 func getFile(c echo.Context) error {
 	// name string will be urlencoded
@@ -146,6 +176,7 @@ func main() {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 	e.GET("/file/:name", getFile)
+	e.PATCH("/file/:name", updateFileTags)
 	e.POST("/file/upload", saveFile)
 	e.GET("/files", listFiles)
 	e.GET("/files/search", searchFiles)
