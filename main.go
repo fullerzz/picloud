@@ -107,9 +107,32 @@ func getFile(c echo.Context) error {
 	return c.File(name)
 }
 
+// e.GET("/files", listFiles)
 func listFiles(c echo.Context) error {
 	// list all available files
 	return c.JSON(http.StatusOK, uploadedFiles)
+}
+
+// e.GET("/files/search", searchFiles)
+func searchFiles(c echo.Context) error {
+	// search for files by tag
+	// get the tag from the request
+	tag := c.QueryParam("tag")
+	// search for the tag in the uploadedFiles
+	var foundFiles []FileMetadata
+	for _, file := range uploadedFiles.Files {
+		for _, t := range file.Tags {
+			if t == tag {
+				foundFiles = append(foundFiles, file)
+				break
+			}
+		}
+	}
+	if len(foundFiles) == 0 {
+		return c.NoContent(http.StatusNoContent)
+	} else {
+		return c.JSON(http.StatusOK, foundFiles)
+	}
 }
 
 func main() {
@@ -125,6 +148,7 @@ func main() {
 	e.GET("/file/:name", getFile)
 	e.POST("/file/upload", saveFile)
 	e.GET("/files", listFiles)
+	e.GET("/files/search", searchFiles)
 
 	e.Logger.Fatal(e.Start(":1234"))
 }
