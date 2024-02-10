@@ -12,6 +12,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+type Tags struct {
+	Tags []string `json:"tags"`
+}
+
 type FileUpload struct {
 	Name    string   `json:"name"`
 	Size    int      `json:"size"`
@@ -39,7 +43,10 @@ func loadFileMetadata() UploadedFiles {
 		panic(err)
 	}
 	var files UploadedFiles
-	json.Unmarshal(data, &files)
+	err = json.Unmarshal(data, &files)
+	if err != nil {
+		panic(err)
+	}
 	return files
 }
 
@@ -62,6 +69,11 @@ func buildLink(rawFilename string) string {
 
 // e.POST("/file/upload", saveFile)
 func saveFile(c echo.Context) error {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return err
+	}
+	// Extract file from form
 	file, err := c.FormFile("file")
 	if err != nil {
 		return err
@@ -83,11 +95,37 @@ func saveFile(c echo.Context) error {
 	if _, err = io.Copy(dst, src); err != nil {
 		return err
 	}
-
-	// TODO: Update Tags and Link fields
-	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: []string{}, Link: buildLink(file.Filename)})
+	// Extract tags from form
+	tags := form.Value["tags"]
+	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: tags, Link: buildLink(file.Filename)})
 	go writeFileMetadata()
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
+}
+
+// e.PATCH("/file/:name", updateFileTags)
+func updateFileTags(c echo.Context) error {
+	// extract tags from request
+	var tags Tags
+	err := c.Bind(&tags)
+	if err != nil {
+		return c.String(http.StatusBadRequest, "Invalid request")
+	}
+	// decode the name
+	encodedName := c.Param("name")
+	name, err := url.QueryUnescape(encodedName)
+	if err != nil {
+		return err
+	}
+	// get the file from the uploadedFiles
+	var file *FileMetadata
+	for i, f := range uploadedFiles.Files {
+		if f.Name == name {
+			file = &uploadedFiles.Files[i]
+			break
+		}
+	}
+	file.Tags = append(file.Tags, tags.Tags...)
+	return c.String(http.StatusOK, "File updated")
 }
 
 // e.GET("/file/:name", getFile)
@@ -102,9 +140,32 @@ func getFile(c echo.Context) error {
 	return c.File(name)
 }
 
+// e.GET("/files", listFiles)
 func listFiles(c echo.Context) error {
 	// list all available files
 	return c.JSON(http.StatusOK, uploadedFiles)
+}
+
+// e.GET("/files/search", searchFiles)
+func searchFiles(c echo.Context) error {
+	// search for files by tag
+	// get the tag from the request
+	tag := c.QueryParam("tag")
+	// search for the tag in the uploadedFiles
+	var foundFiles []FileMetadata
+	for _, file := range uploadedFiles.Files {
+		for _, t := range file.Tags {
+			if t == tag {
+				foundFiles = append(foundFiles, file)
+				break
+			}
+		}
+	}
+	if len(foundFiles) == 0 {
+		return c.NoContent(http.StatusNoContent)
+	} else {
+		return c.JSON(http.StatusOK, foundFiles)
+	}
 }
 
 func main() {
@@ -118,8 +179,10 @@ func main() {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 	e.GET("/file/:name", getFile)
+	e.PATCH("/file/:name", updateFileTags)
 	e.POST("/file/upload", saveFile)
 	e.GET("/files", listFiles)
+	e.GET("/files/search", searchFiles)
 
 	e.Logger.Fatal(e.Start(":1234"))
 }
