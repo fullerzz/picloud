@@ -98,7 +98,8 @@ func saveFile(c echo.Context) error {
 	defer src.Close()
 
 	// Destination
-	dst, err := os.Create(file.Filename)
+	filePath := fmt.Sprintf("/opt/picloud/uploads/%s", file.Filename)
+	dst, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
