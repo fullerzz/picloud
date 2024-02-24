@@ -77,7 +77,7 @@ func writeFileMetadata() {
 
 // buildLink returns a link to be used in the FileMetadata struct on initialization
 func buildLink(rawFilename string) string {
-	return fmt.Sprintf("http://localhost:1234/file/%s", url.QueryEscape(rawFilename))
+	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
 }
 
 // e.POST("/file/upload", saveFile)
