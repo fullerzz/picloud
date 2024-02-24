@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,16 +38,28 @@ type UploadedFiles struct {
 var uploadedFiles UploadedFiles
 
 func loadFileMetadata() UploadedFiles {
-	// load file metadata from file
-	data, err := os.ReadFile("metadata.json")
-	if err != nil {
-		panic(err)
-	}
 	var files UploadedFiles
-	err = json.Unmarshal(data, &files)
-	if err != nil {
+	// check if file exists
+	if _, err := os.Stat("metadata.json"); err == nil {
+		data, err := os.ReadFile("metadata.json")
+		if err != nil {
+			panic(err)
+		}
+		err = json.Unmarshal(data, &files)
+		if err != nil {
+			panic(err)
+		}
+	} else if errors.Is(err, os.ErrNotExist) {
+		// create the file if it doesn't exist
+		_, err := os.Create("metadata.json")
+		if err != nil {
+			panic(err)
+		}
+	} else {
+		// panic if error isn't caused by missing file
 		panic(err)
 	}
+
 	return files
 }
 
