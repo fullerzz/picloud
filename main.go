@@ -153,7 +153,7 @@ func getFile(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.File(name)
+	return c.File(fmt.Sprintf("/opt/picloud/uploads/%s", name))
 }
 
 // e.GET("/files", listFiles)
