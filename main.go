@@ -39,6 +39,7 @@ type UploadedFiles struct {
 }
 
 const FilePrefix = "/opt/picloud/uploads/"
+
 // const FilePrefix = "uploads/" // localhost
 
 // global var initialized before API to store info on the server's uploaded files
