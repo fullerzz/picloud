@@ -5,7 +5,7 @@ name: Go
 
 on:
   push:
-    branches: [ "main", "5-setup-github-actions", "dev" ]
+    branches: [ "main", "10-serve-images-avif-format", "dev" ]
   pull_request:
     branches: [ "main" ]
 
