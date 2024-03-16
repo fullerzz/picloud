@@ -5,7 +5,7 @@ name: Go
 
 on:
   push:
-    branches: [ "main", "10-serve-images-avif-format", "dev" ]
+    branches: [ "main", "dev" ]
   pull_request:
     branches: [ "main" ]
 
