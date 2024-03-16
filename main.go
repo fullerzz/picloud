@@ -83,6 +83,12 @@ func writeFileMetadata() {
 	}
 }
 
+func createAltSizes(filename string) {
+	// load original file data based on filename
+	// create alt sizes - thumbnail/icon size and medium size
+	slog.Info(fmt.Sprintf("Creating alt sizes for %s", filename))
+}
+
 // buildLink returns a link to be used in the FileMetadata struct on initialization
 func buildLink(rawFilename string) string {
 	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
@@ -121,6 +127,7 @@ func saveFile(c echo.Context) error {
 	tags := form.Value["tags"]
 	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: tags, Link: buildLink(file.Filename)})
 	go writeFileMetadata()
+	go createAltSizes(file.Filename)
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
 
