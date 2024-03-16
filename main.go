@@ -151,31 +151,39 @@ func updateFileTags(c echo.Context) error {
 
 // e.GET("/file/:name", getFile)
 func getFile(c echo.Context) error {
-	// name string will be urlencoded
 	encodedName := c.Param("name")
-	// decode the name
 	name, err := url.QueryUnescape(encodedName)
 	if err != nil {
 		return err
 	}
-	// return c.File(fmt.Sprintf("/opt/picloud/uploads/%s", name))
-	return c.File(fmt.Sprintf("%s%s", FilePrefix, name))
+
+	avifFmt := c.QueryParam("avif")
+	if avifFmt == "true" {
+		return getAvif(c)
+	} else {
+		return c.File(fmt.Sprintf("%s%s", FilePrefix, name))
+	}
 }
 
-// TODO: Implement fileType as query parameter on getFile operation to replace the getAvif func
-// e.GET("/file/:name/avif", getAvif)
 func getAvif(c echo.Context) error {
 	encodedName := c.Param("name")
 	name, err := url.QueryUnescape(encodedName)
 	if err != nil {
 		return err
 	}
-	// check if the file exists
+
+	// check if avif file already exists and return it if it does
+	if _, err := os.Stat(fmt.Sprintf("%s%s.avif", FilePrefix, name)); err == nil {
+		slog.Info("Found existing AVIF file")
+		return c.File(fmt.Sprintf("%s%s.avif", FilePrefix, name))
+	}
+
+	// check if the src file exists
 	if _, err := os.Stat(fmt.Sprintf("%s%s", FilePrefix, name)); err != nil {
 		slog.Info("File not found")
 		return c.String(http.StatusNotFound, "File not found")
 	}
-	slog.Info("File found")
+	slog.Info("Src file found")
 
 	// open the srcFile
 	srcFile, err := os.Open(fmt.Sprintf("%s%s", FilePrefix, name))
@@ -185,14 +193,12 @@ func getAvif(c echo.Context) error {
 	slog.Info("File opened")
 	defer srcFile.Close()
 
-	// TODO: Check if AVIF file already exists before creating a new one
-
 	// create new avif file
 	dstFile, err := os.Create(fmt.Sprintf("%s%s.avif", FilePrefix, name))
 	if err != nil {
 		return err
 	}
-	slog.Debug("dstFile created")
+	slog.Debug(fmt.Sprintf("Created file %s%s.avif", FilePrefix, name))
 
 	// decode the src file
 	img, err := jpeg.Decode(srcFile)
@@ -273,7 +279,6 @@ func main() {
 	})
 	e.GET("/file/:name", getFile)
 	e.PATCH("/file/:name", updateFileTags)
-	e.GET("/file/:name/avif", getAvif)
 	e.POST("/file/upload", saveFile)
 	e.GET("/files", listFiles)
 	e.GET("/files/search", searchFiles)
