@@ -21,8 +21,10 @@
 go.work
 
 # Misc files that may be present locally
+*.avif
 *.jpg
 *.jpeg
 *.png
 *.json
 main
+uploads/
