@@ -5,7 +5,7 @@ name: Go
 
 on:
   push:
-    branches: [ "main", "5-setup-github-actions", "dev" ]
+    branches: [ "main", "dev" ]
   pull_request:
     branches: [ "main" ]
 
@@ -14,10 +14,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+
+    - name: Set up AVIF dependency
+      run: sudo apt-get install -y libaom-dev
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '1.22'
 
