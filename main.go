@@ -275,6 +275,7 @@ func main() {
 			return nil
 		},
 	}))
+	e.Use(middleware.CORS())
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
