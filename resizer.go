@@ -17,11 +17,17 @@ func copyImage(img *image.Image) error {
 	defer dstFile.Close()
 
 	// create new image
-	maxX := (*img).Bounds().Dx() / 2
-	maxY := (*img).Bounds().Dy() / 2
+	maxX := (*img).Bounds().Dx()
+	maxY := (*img).Bounds().Dy()
 	// newImg := image.NewRGBA((*img).Bounds())
 	newImg := image.NewRGBA(image.Rect(0, 0, maxX, maxY))
 	fmt.Printf("New image bounds: %v\n", newImg.Bounds())
+
+	for y := range (*img).Bounds().Dy() {
+		for x := range (*img).Bounds().Dx() {
+			newImg.Set(x, y, (*img).At(x, y))
+		}
+	}
 
 	err = jpeg.Encode(dstFile, newImg, nil)
 	if err != nil {
