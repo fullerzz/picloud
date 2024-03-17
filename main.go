@@ -47,7 +47,6 @@ var uploadedFiles UploadedFiles
 
 func loadFileMetadata() UploadedFiles {
 	var files UploadedFiles
-	// check if file exists
 	if _, err := os.Stat("metadata.json"); err == nil {
 		data, err := os.ReadFile("metadata.json")
 		if err != nil {
@@ -72,7 +71,6 @@ func loadFileMetadata() UploadedFiles {
 }
 
 func writeFileMetadata() {
-	// write file metadata to file
 	data, err := json.Marshal(uploadedFiles)
 	if err != nil {
 		panic(err)
@@ -89,7 +87,6 @@ func createAltSizes(filename string) {
 	slog.Info(fmt.Sprintf("Creating alt sizes for %s", filename))
 }
 
-// buildLink returns a link to be used in the FileMetadata struct on initialization
 func buildLink(rawFilename string) string {
 	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
 }
@@ -214,7 +211,6 @@ func getAvif(c echo.Context) error {
 		slog.Error("Error decoding image")
 		return err
 	}
-	slog.Debug("Image decoded successfully")
 
 	// encode the img as avif file
 	err = avif.Encode(dstFile, img, nil)
@@ -230,14 +226,11 @@ func getAvif(c echo.Context) error {
 
 // e.GET("/files", listFiles)
 func listFiles(c echo.Context) error {
-	// list all available files
 	return c.JSON(http.StatusOK, uploadedFiles)
 }
 
 // e.GET("/files/search", searchFiles)
 func searchFiles(c echo.Context) error {
-	// search for files by tag
-	// get the tag from the request
 	tag := c.QueryParam("tag")
 	// search for the tag in the uploadedFiles
 	var foundFiles []FileMetadata
