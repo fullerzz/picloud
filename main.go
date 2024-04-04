@@ -81,12 +81,6 @@ func writeFileMetadata() {
 	}
 }
 
-func createAltSizes(filename string) {
-	// load original file data based on filename
-	// create alt sizes - thumbnail/icon size and medium size
-	slog.Info(fmt.Sprintf("Creating alt sizes for %s", filename))
-}
-
 func buildLink(rawFilename string) string {
 	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
 }
@@ -166,10 +160,6 @@ func getFile(c echo.Context) error {
 	if avifFmt == "true" {
 		return getAvif(c)
 	} else {
-		err := createIconSize(fmt.Sprintf("%s%s", FilePrefix, name))
-		if err != nil {
-			return err
-		}
 		return c.File(fmt.Sprintf("%s%s", FilePrefix, name))
 	}
 }
