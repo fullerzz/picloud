@@ -38,9 +38,9 @@ type UploadedFiles struct {
 	Files []FileMetadata `json:"files"`
 }
 
-// const FilePrefix = "/opt/picloud/uploads/"
+const FilePrefix = "/opt/picloud/uploads/"
 
-const FilePrefix = "uploads/" // localhost
+// const FilePrefix = "uploads/" // localhost
 
 // global var initialized before API to store info on the server's uploaded files
 var uploadedFiles UploadedFiles
