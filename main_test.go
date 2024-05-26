@@ -18,11 +18,20 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestLoadFileMetadata(t *testing.T) {
-	// TODO: inject mock data to load for this test and assert mocked data is returned
 	expectedFileMetadata := FileMetadata{Name: "baxter.jpg", Tags: []string{}, Link: "baxter.jpg"}
 	expected := UploadedFiles{Files: []FileMetadata{expectedFileMetadata}}
 	uploadedFiles = loadFileMetadata("testdata/metadata.json")
 	if assert.NotEmpty(t, uploadedFiles) {
+		assert.Equal(t, expected, uploadedFiles)
+	}
+}
+
+func TestLoadMissingFileMetadata(t *testing.T) {
+	// TODO: Delete testdata/nonexistant_metadata.json if it exists before this test is ran
+	expected := UploadedFiles{Files: []FileMetadata{}}
+	uploadedFiles = loadFileMetadata("testdata/nonexistant_metadata.json")
+	if assert.NotNil(t, uploadedFiles) {
+		// TODO:  Fix following assertion. Actual type being returned is an interface I think..
 		assert.Equal(t, expected, uploadedFiles)
 	}
 }
