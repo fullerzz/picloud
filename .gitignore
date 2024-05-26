@@ -31,3 +31,7 @@ uploads/
 
 # Keep config
 !conf.json
+
+# Keep testdata
+!testdata/baxter.jpg
+!testdata/metadata.json
