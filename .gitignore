@@ -28,3 +28,6 @@ go.work
 *.json
 main
 uploads/
+
+# Keep config
+!conf.json

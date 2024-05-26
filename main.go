@@ -38,12 +38,24 @@ type UploadedFiles struct {
 	Files []FileMetadata `json:"files"`
 }
 
-const FilePrefix = "/opt/picloud/uploads/"
+type Configuration struct {
+	FilePrefix string
+}
 
-// const FilePrefix = "uploads/" // localhost
+var conf Configuration
 
 // global var initialized before API to store info on the server's uploaded files
 var uploadedFiles UploadedFiles
+
+func loadConfig() {
+	file, _ := os.Open("conf.json")
+	defer file.Close()
+	decoder := json.NewDecoder(file)
+	err := decoder.Decode(&conf)
+	if err != nil {
+		panic(err)
+	}
+}
 
 func loadFileMetadata() UploadedFiles {
 	var files UploadedFiles
@@ -160,7 +172,7 @@ func getFile(c echo.Context) error {
 	if avifFmt == "true" {
 		return getAvif(c)
 	} else {
-		return c.File(fmt.Sprintf("%s%s", FilePrefix, name))
+		return c.File(fmt.Sprintf("%s%s", conf.FilePrefix, name))
 	}
 }
 
@@ -172,20 +184,20 @@ func getAvif(c echo.Context) error {
 	}
 
 	// check if avif file already exists and return it if it does
-	if _, err := os.Stat(fmt.Sprintf("%s%s.avif", FilePrefix, name)); err == nil {
+	if _, err := os.Stat(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name)); err == nil {
 		slog.Info("Found existing AVIF file")
-		return c.File(fmt.Sprintf("%s%s.avif", FilePrefix, name))
+		return c.File(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name))
 	}
 
 	// check if the src file exists
-	if _, err := os.Stat(fmt.Sprintf("%s%s", FilePrefix, name)); err != nil {
+	if _, err := os.Stat(fmt.Sprintf("%s%s", conf.FilePrefix, name)); err != nil {
 		slog.Info("File not found")
 		return c.String(http.StatusNotFound, "File not found")
 	}
 	slog.Info("Src file found")
 
 	// open the srcFile
-	srcFile, err := os.Open(fmt.Sprintf("%s%s", FilePrefix, name))
+	srcFile, err := os.Open(fmt.Sprintf("%s%s", conf.FilePrefix, name))
 	if err != nil {
 		return err
 	}
@@ -193,11 +205,11 @@ func getAvif(c echo.Context) error {
 	defer srcFile.Close()
 
 	// create new avif file
-	dstFile, err := os.Create(fmt.Sprintf("%s%s.avif", FilePrefix, name))
+	dstFile, err := os.Create(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name))
 	if err != nil {
 		return err
 	}
-	slog.Debug(fmt.Sprintf("Created file %s%s.avif", FilePrefix, name))
+	slog.Debug(fmt.Sprintf("Created file %s%s.avif", conf.FilePrefix, name))
 
 	// decode the src file
 	img, err := jpeg.Decode(srcFile)
@@ -215,7 +227,7 @@ func getAvif(c echo.Context) error {
 	slog.Debug("AVIF image encoded successfully")
 
 	// return the file
-	return c.File(fmt.Sprintf("%s%s.avif", FilePrefix, name))
+	return c.File(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name))
 }
 
 // e.GET("/files", listFiles)
@@ -244,6 +256,7 @@ func searchFiles(c echo.Context) error {
 }
 
 func main() {
+	loadConfig()
 	// Load information about uploaded files
 	uploadedFiles = loadFileMetadata()
 	e := echo.New()
