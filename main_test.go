@@ -22,8 +22,7 @@ func TestLoadFileMetadata(t *testing.T) {
 	expectedFileMetadata := FileMetadata{Name: "baxter.jpg", Tags: []string{}, Link: "baxter.jpg"}
 	expected := UploadedFiles{Files: []FileMetadata{expectedFileMetadata}}
 	uploadedFiles = loadFileMetadata("testdata/metadata.json")
-	if assert.NotEmpty(t, conf) {
-		assert.Equal(t, "/opt/picloud/uploads/", conf.FilePrefix)
+	if assert.NotEmpty(t, uploadedFiles) {
 		assert.Equal(t, expected, uploadedFiles)
 	}
 }
