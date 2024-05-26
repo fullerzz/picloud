@@ -17,14 +17,16 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
-// func TestLoadFileMetadata(t *testing.T) {
-// 	// TODO: inject mock data to load for this test and assert mocked data is returned
-// 	expected := `{"files":[{"name":"baxter.jpg","tags":[],"link":"baxter.jpg"}}`
-// 	uploadedFiles = loadFileMetadata()
-// 	if assert.NotEmpty(t, conf) {
-// 		assert.Equal(t, "/opt/picloud/uploads/", conf.FilePrefix)
-// 	}
-// }
+func TestLoadFileMetadata(t *testing.T) {
+	// TODO: inject mock data to load for this test and assert mocked data is returned
+	expectedFileMetadata := FileMetadata{Name: "baxter.jpg", Tags: []string{}, Link: "baxter.jpg"}
+	expected := UploadedFiles{Files: []FileMetadata{expectedFileMetadata}}
+	uploadedFiles = loadFileMetadata("testdata/metadata.json")
+	if assert.NotEmpty(t, conf) {
+		assert.Equal(t, "/opt/picloud/uploads/", conf.FilePrefix)
+		assert.Equal(t, expected, uploadedFiles)
+	}
+}
 
 func TestListFiles(t *testing.T) {
 	e := echo.New()

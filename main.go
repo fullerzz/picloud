@@ -57,10 +57,10 @@ func loadConfig() {
 	}
 }
 
-func loadFileMetadata() UploadedFiles {
+func loadFileMetadata(metadataPath string) UploadedFiles {
 	var files UploadedFiles
-	if _, err := os.Stat("metadata.json"); err == nil {
-		data, err := os.ReadFile("metadata.json")
+	if _, err := os.Stat(metadataPath); err == nil {
+		data, err := os.ReadFile(metadataPath)
 		if err != nil {
 			panic(err)
 		}
@@ -70,7 +70,7 @@ func loadFileMetadata() UploadedFiles {
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// create the file if it doesn't exist
-		_, err := os.Create("metadata.json")
+		_, err := os.Create(metadataPath)
 		if err != nil {
 			panic(err)
 		}
@@ -258,7 +258,7 @@ func searchFiles(c echo.Context) error {
 func main() {
 	loadConfig()
 	// Load information about uploaded files
-	uploadedFiles = loadFileMetadata()
+	uploadedFiles = loadFileMetadata("metadata.json")
 	e := echo.New()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
