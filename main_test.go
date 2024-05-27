@@ -1,8 +1,10 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -27,12 +29,17 @@ func TestLoadFileMetadata(t *testing.T) {
 }
 
 func TestLoadMissingFileMetadata(t *testing.T) {
-	// TODO: Delete testdata/nonexistant_metadata.json if it exists before this test is ran
-	expected := UploadedFiles{Files: []FileMetadata{}}
-	uploadedFiles = loadFileMetadata("testdata/nonexistant_metadata.json")
+	testMetadataPath := "testdata/nonexistant_metadata.json"
+	expected := UploadedFiles{}
+	uploadedFiles = loadFileMetadata(testMetadataPath)
 	if assert.NotNil(t, uploadedFiles) {
-		// TODO:  Fix following assertion. Actual type being returned is an interface I think..
 		assert.Equal(t, expected, uploadedFiles)
+	}
+	// cleanup
+	err := os.Remove(testMetadataPath)
+	if err != nil {
+		fmt.Println("Error removing test metadata file")
+		panic(err)
 	}
 }
 
