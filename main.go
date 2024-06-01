@@ -127,7 +127,7 @@ func saveFile(c echo.Context) error {
 
 	// Copy
 	if _, err = io.Copy(dst, src); err != nil {
-		slog.Error("Error copying file from %s to %s", src, dst)
+		slog.Error("Error copying file")
 		return err
 	}
 	// Extract tags from form
