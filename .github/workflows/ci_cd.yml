@@ -29,5 +29,5 @@ jobs:
 
     - name: Test
       run: |
-        ls -al
+        mkdir uploads
         go test -v ./...
