@@ -40,6 +40,7 @@ func createAltSizes(srcPath string) {
 	slog.Info(fmt.Sprintf("Creating alt sizes for %s", srcPath))
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
+		slog.Error("Error opening file")
 		panic(err)
 	}
 	defer srcFile.Close()

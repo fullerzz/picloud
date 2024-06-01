@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,9 +15,9 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	loadConfig()
+	loadConfig("testdata/conf.json")
 	if assert.NotEmpty(t, conf) {
-		assert.Equal(t, "/opt/picloud/uploads/", conf.FilePrefix)
+		assert.Equal(t, "uploads/", conf.FilePrefix)
 	}
 }
 
@@ -49,5 +51,53 @@ func TestListFiles(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	assert.NoError(t, listFiles(c))
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestSaveFile(t *testing.T) {
+	e := echo.New()
+
+	// create a multipart form for test request
+	buf := new(bytes.Buffer)
+	w := multipart.NewWriter(buf)
+	fw, _ := w.CreateFormField("name")
+	_, err := fw.Write([]byte("baxter.jpg"))
+	if err != nil {
+		fmt.Println("Error writing form field")
+		panic(err)
+	}
+	fw, _ = w.CreateFormField("size")
+	_, err = fw.Write([]byte("12345"))
+	if err != nil {
+		fmt.Println("Error writing form field")
+		panic(err)
+	}
+	fw, _ = w.CreateFormFile("file", "baxter.jpg")
+	// load baxter.jpg into memory
+	testFilePath := "testdata/baxter.jpg"
+	fileData, err := os.ReadFile(testFilePath)
+	if err != nil {
+		fmt.Printf("Error reading file %s\n", testFilePath)
+		panic(err)
+	}
+	_, err = fw.Write(fileData)
+	if err != nil {
+		fmt.Println("Error writing image data to form file")
+		panic(err)
+	}
+	fw, _ = w.CreateFormField("tags")
+	_, err = fw.Write([]byte("dog, baxter"))
+	if err != nil {
+		fmt.Println("Error writing form field")
+		panic(err)
+	}
+	w.Close()
+
+	// setup test request and recorder
+	req := httptest.NewRequest(http.MethodPost, "/file/upload", buf)
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	assert.NoError(t, saveFile(c))
 	require.Equal(t, http.StatusOK, rec.Code)
 }

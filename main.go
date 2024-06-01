@@ -47,8 +47,8 @@ var conf Configuration
 // global var initialized before API to store info on the server's uploaded files
 var uploadedFiles UploadedFiles
 
-func loadConfig() {
-	file, _ := os.Open("conf.json")
+func loadConfig(confFileName string) {
+	file, _ := os.Open(confFileName)
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	err := decoder.Decode(&conf)
@@ -115,7 +115,7 @@ func saveFile(c echo.Context) error {
 	defer src.Close()
 
 	// Destination
-	filePath := fmt.Sprintf("/opt/picloud/uploads/%s", file.Filename)
+	filePath := fmt.Sprintf("%s%s", conf.FilePrefix, file.Filename)
 	dst, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -256,7 +256,7 @@ func searchFiles(c echo.Context) error {
 }
 
 func main() {
-	loadConfig()
+	loadConfig("conf.json")
 	// Load information about uploaded files
 	uploadedFiles = loadFileMetadata("metadata.json")
 	e := echo.New()
