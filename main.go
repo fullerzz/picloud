@@ -136,7 +136,7 @@ func saveFile(c echo.Context) error {
 	slog.Info("Updating file metadata")
 	go writeFileMetadata()
 	slog.Info("Triggering creation of alt sizes")
-	go createAltSizes(file.Filename)
+	go createAltSizes(filePath)
 	slog.Info("Returning success message")
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
