@@ -85,10 +85,12 @@ func loadFileMetadata(metadataPath string) UploadedFiles {
 func writeFileMetadata() {
 	data, err := json.Marshal(uploadedFiles)
 	if err != nil {
+		slog.Error("Error marshalling metadata")
 		panic(err)
 	}
 	err = os.WriteFile("metadata.json", data, 0644)
 	if err != nil {
+		slog.Error("Error writing metadata")
 		panic(err)
 	}
 }

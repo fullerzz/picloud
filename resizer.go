@@ -31,6 +31,7 @@ func writeNewImg(img *image.Image, scale int, filename string) error {
 
 	err = jpeg.Encode(dstFile, newImg, nil)
 	if err != nil {
+		slog.Error("Error encoding new jpeg image")
 		return err
 	}
 	return nil
