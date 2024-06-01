@@ -133,9 +133,9 @@ func saveFile(c echo.Context) error {
 	// Extract tags from form
 	tags := form.Value["tags"]
 	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: tags, Link: buildLink(file.Filename)})
-	slog.Debug("Updating file metadata")
+	slog.Info("Updating file metadata")
 	go writeFileMetadata()
-	slog.Debug("Triggering creation of alt sizes")
+	slog.Info("Triggering creation of alt sizes")
 	go createAltSizes(file.Filename)
 	slog.Info("Returning success message")
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
