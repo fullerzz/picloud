@@ -36,3 +36,11 @@ picloud
 # Keep testdata
 !testdata/baxter.jpg
 !testdata/metadata.json
+
+# IAC
+.terraform
+**/.terraform/*
+terraform.tfstate
+**/*.tfstate
+**/*.tfstate.*
+**/dist/*
