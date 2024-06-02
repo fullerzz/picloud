@@ -47,8 +47,8 @@ var conf Configuration
 // global var initialized before API to store info on the server's uploaded files
 var uploadedFiles UploadedFiles
 
-func loadConfig() {
-	file, _ := os.Open("conf.json")
+func loadConfig(confFileName string) {
+	file, _ := os.Open(confFileName)
 	defer file.Close()
 	decoder := json.NewDecoder(file)
 	err := decoder.Decode(&conf)
@@ -57,10 +57,10 @@ func loadConfig() {
 	}
 }
 
-func loadFileMetadata() UploadedFiles {
+func loadFileMetadata(metadataPath string) UploadedFiles {
 	var files UploadedFiles
-	if _, err := os.Stat("metadata.json"); err == nil {
-		data, err := os.ReadFile("metadata.json")
+	if _, err := os.Stat(metadataPath); err == nil {
+		data, err := os.ReadFile(metadataPath)
 		if err != nil {
 			panic(err)
 		}
@@ -70,7 +70,7 @@ func loadFileMetadata() UploadedFiles {
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		// create the file if it doesn't exist
-		_, err := os.Create("metadata.json")
+		_, err := os.Create(metadataPath)
 		if err != nil {
 			panic(err)
 		}
@@ -85,10 +85,12 @@ func loadFileMetadata() UploadedFiles {
 func writeFileMetadata() {
 	data, err := json.Marshal(uploadedFiles)
 	if err != nil {
+		slog.Error("Error marshalling metadata")
 		panic(err)
 	}
 	err = os.WriteFile("metadata.json", data, 0644)
 	if err != nil {
+		slog.Error("Error writing metadata")
 		panic(err)
 	}
 }
@@ -115,7 +117,8 @@ func saveFile(c echo.Context) error {
 	defer src.Close()
 
 	// Destination
-	filePath := fmt.Sprintf("/opt/picloud/uploads/%s", file.Filename)
+	filePath := fmt.Sprintf("%s%s", conf.FilePrefix, file.Filename)
+	slog.Info(fmt.Sprintf("Saving file to %s", filePath))
 	dst, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -124,13 +127,17 @@ func saveFile(c echo.Context) error {
 
 	// Copy
 	if _, err = io.Copy(dst, src); err != nil {
+		slog.Error("Error copying file")
 		return err
 	}
 	// Extract tags from form
 	tags := form.Value["tags"]
 	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: tags, Link: buildLink(file.Filename)})
+	slog.Info("Updating file metadata")
 	go writeFileMetadata()
-	go createAltSizes(file.Filename)
+	slog.Info("Triggering creation of alt sizes")
+	go createAltSizes(filePath)
+	slog.Info("Returning success message")
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
 
@@ -155,6 +162,9 @@ func updateFileTags(c echo.Context) error {
 			file = &uploadedFiles.Files[i]
 			break
 		}
+	}
+	if file == nil {
+		return c.String(http.StatusNotFound, "File not found")
 	}
 	file.Tags = append(file.Tags, tags.Tags...)
 	return c.String(http.StatusOK, "File updated")
@@ -256,9 +266,9 @@ func searchFiles(c echo.Context) error {
 }
 
 func main() {
-	loadConfig()
+	loadConfig("conf.json")
 	// Load information about uploaded files
-	uploadedFiles = loadFileMetadata()
+	uploadedFiles = loadFileMetadata("metadata.json")
 	e := echo.New()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{

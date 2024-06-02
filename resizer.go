@@ -31,6 +31,7 @@ func writeNewImg(img *image.Image, scale int, filename string) error {
 
 	err = jpeg.Encode(dstFile, newImg, nil)
 	if err != nil {
+		slog.Error("Error encoding new jpeg image")
 		return err
 	}
 	return nil
@@ -40,6 +41,7 @@ func createAltSizes(srcPath string) {
 	slog.Info(fmt.Sprintf("Creating alt sizes for %s", srcPath))
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
+		slog.Error("Error opening file")
 		panic(err)
 	}
 	defer srcFile.Close()

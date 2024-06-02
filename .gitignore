@@ -28,6 +28,11 @@ go.work
 *.json
 main
 uploads/
+picloud
 
 # Keep config
 !conf.json
+
+# Keep testdata
+!testdata/baxter.jpg
+!testdata/metadata.json
