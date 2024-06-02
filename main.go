@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -116,28 +117,25 @@ func saveFile(c echo.Context) error {
 	}
 	defer src.Close()
 
-	// Destination
-	filePath := fmt.Sprintf("%s%s", conf.FilePrefix, file.Filename)
-	slog.Info(fmt.Sprintf("Saving file to %s", filePath))
-	dst, err := os.Create(filePath)
-	if err != nil {
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, src); err != nil {
+		slog.Error("Error copying file: %s", err)
 		return err
 	}
-	defer dst.Close()
 
-	// Copy
-	if _, err = io.Copy(dst, src); err != nil {
-		slog.Error("Error copying file")
+	metadata := &FileMetadata{Name: file.Filename, Tags: form.Value["tags"], Link: buildLink(file.Filename)}
+
+	result, err := uploadFileToS3(metadata, buf.Bytes())
+	if err != nil {
+		slog.Error("Error uploading file to S3: %s", err)
 		return err
 	}
-	// Extract tags from form
-	tags := form.Value["tags"]
-	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: tags, Link: buildLink(file.Filename)})
+	slog.Info(fmt.Sprintf("S3 result: %s", result))
+
+	uploadedFiles.Files = append(uploadedFiles.Files, *metadata)
 	slog.Info("Updating file metadata")
 	go writeFileMetadata()
-	slog.Info("Triggering creation of alt sizes")
-	go createAltSizes(filePath)
-	slog.Info("Returning success message")
+
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
 
