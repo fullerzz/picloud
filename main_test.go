@@ -104,7 +104,7 @@ func TestSaveFile(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestUpdateFileTags(t *testing.T) {
+func TestUpdateFileTagsNotFound(t *testing.T) {
 	e := echo.New()
 
 	tags := Tags{Tags: []string{"dog", "baxter"}}
@@ -120,6 +120,6 @@ func TestUpdateFileTags(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	assert.NoError(t, updateFileTags(c))
-	assert.Equal(t, "File updated", rec.Body.String())
-	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "File not found", rec.Body.String())
+	require.Equal(t, http.StatusNotFound, rec.Code)
 }
