@@ -163,6 +163,9 @@ func updateFileTags(c echo.Context) error {
 			break
 		}
 	}
+	if file == nil {
+		return c.String(http.StatusNotFound, "File not found")
+	}
 	file.Tags = append(file.Tags, tags.Tags...)
 	return c.String(http.StatusOK, "File updated")
 }
