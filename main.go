@@ -125,12 +125,11 @@ func saveFile(c echo.Context) error {
 
 	metadata := &FileMetadata{Name: file.Filename, Tags: form.Value["tags"], Link: buildLink(file.Filename)}
 
-	result, err := uploadFileToS3(metadata, buf.Bytes())
+	err = uploadFileToS3(metadata, buf.Bytes())
 	if err != nil {
 		slog.Error("Error uploading file to S3: %s", err)
 		return err
 	}
-	slog.Info(fmt.Sprintf("S3 result: %s", result))
 
 	uploadedFiles.Files = append(uploadedFiles.Files, *metadata)
 	slog.Info("Updating file metadata")
