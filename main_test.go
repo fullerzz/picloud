@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -69,7 +70,7 @@ func TestSaveFile(t *testing.T) {
 	fw, _ = w.CreateFormField("size")
 	_, err = fw.Write([]byte("12345"))
 	if err != nil {
-		fmt.Println("Error writing form field")
+		fmt.Println("Error writing form field 'size'")
 		panic(err)
 	}
 	fw, _ = w.CreateFormFile("file", "baxter.jpg")
@@ -88,7 +89,7 @@ func TestSaveFile(t *testing.T) {
 	fw, _ = w.CreateFormField("tags")
 	_, err = fw.Write([]byte("dog, baxter"))
 	if err != nil {
-		fmt.Println("Error writing form field")
+		fmt.Println("Error writing form field 'tags'")
 		panic(err)
 	}
 	w.Close()
@@ -98,6 +99,27 @@ func TestSaveFile(t *testing.T) {
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
+
 	assert.NoError(t, saveFile(c))
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestUpdateFileTags(t *testing.T) {
+	e := echo.New()
+
+	tags := Tags{Tags: []string{"dog", "baxter"}}
+	body, err := json.Marshal(tags)
+	if err != nil {
+		fmt.Println("Error marshalling tags")
+		panic(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPatch, "/file/baxter.jpg", bytes.NewBuffer(body))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	assert.NoError(t, updateFileTags(c))
+	assert.Equal(t, "File updated", rec.Body.String())
 	require.Equal(t, http.StatusOK, rec.Code)
 }
