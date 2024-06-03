@@ -131,9 +131,15 @@ func saveFile(c echo.Context) error {
 		return err
 	}
 
+	// TODO: remove the following 3 lines once the writeMetadataToTable function is implemented fully
 	uploadedFiles.Files = append(uploadedFiles.Files, *metadata)
 	slog.Info("Updating file metadata")
 	go writeFileMetadata()
+
+	err = writeMetadataToTable(file.Filename)
+	if err != nil {
+		slog.Error("Error writing metadata to table: %v\n", err)
+	}
 
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
 }
