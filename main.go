@@ -79,13 +79,13 @@ func saveFile(c echo.Context) error {
 
 	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"]}
 
-	bucketKey, err := filesBucket.UploadFile(fileUpload)
+	objectKey, err := filesBucket.UploadFile(fileUpload)
 	if err != nil {
 		slog.Error("Error uploading file to S3: %s", err)
 		return err
 	}
 
-	err = writeMetadataToTable(fileUpload, bucketKey)
+	err = writeMetadataToTable(fileUpload, objectKey)
 	if err != nil {
 		slog.Error("Error writing metadata to table", "err", err)
 		return err
@@ -97,19 +97,23 @@ func saveFile(c echo.Context) error {
 // e.GET("/file/:name", getFile)
 func getFile(c echo.Context) error {
 	encodedName := c.Param("name")
-	name, err := url.QueryUnescape(encodedName)
+	filename, err := url.QueryUnescape(encodedName)
 	if err != nil {
 		return err
-	}
-	files, err := metadataTable.Query(name)
-	if err != nil {
-		return err
-	}
-	if len(files) == 0 {
-		return c.NoContent(http.StatusNotFound)
 	}
 
-	return c.JSON(http.StatusOK, files)
+	objectKey, err := getObjectKey(filename)
+	if err != nil {
+		return err
+	}
+
+	fileContent, err := filesBucket.DownloadFile(objectKey)
+	if err != nil {
+		slog.Error("Error downloading file from S3", "err", err)
+		return c.String(http.StatusInternalServerError, "Error downloading file from S3")
+	}
+
+	return c.Blob(http.StatusOK, "application/octet-stream", fileContent)
 }
 
 // e.GET("/file/:name/metadata", getFileMetadata)

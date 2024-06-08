@@ -26,7 +26,7 @@ type S3FilesBucket struct {
 
 type MetadataTableItem struct {
 	FileName        string `dynamodbav:"file_name"`
-	BucketKey       string `dynamodbav:"bucket_key"`
+	ObjectKey       string `dynamodbav:"object_key"`
 	Sha256          string `dynamodbav:"file_sha256"`
 	FileExtension   string `dynamodbav:"file_extension"`
 	UploadTimestamp int64  `dynamodbav:"upload_timestamp"`
@@ -79,26 +79,32 @@ func (table *MetadataTable) Query(filename string) ([]MetadataTableItem, error) 
 	return items, err
 }
 
-func writeMetadataToTable(file *FileUpload, bucketKey string) error {
-	cfg, err := config.LoadDefaultConfig(context.TODO())
+func writeMetadataToTable(file *FileUpload, objectKey string) error {
+	metadata := &MetadataTableItem{FileName: file.Name, ObjectKey: objectKey, Sha256: getSha256Checksum(&file.Content), FileExtension: "TODO", UploadTimestamp: getTimestamp()}
+	return metadataTable.addMetadata(metadata)
+}
+
+func getObjectKey(filename string) (string, error) {
+	items, err := metadataTable.Query(filename)
 	if err != nil {
-		return err
+		return "", err
 	}
-	client := dynamodb.NewFromConfig(cfg)
-	table := &MetadataTable{DynamoDBClient: client, TableName: os.Getenv("DYNAMODB_TABLE")}
-	metadata := &MetadataTableItem{FileName: file.Name, BucketKey: bucketKey, Sha256: getSha256Checksum(&file.Content), FileExtension: "TODO", UploadTimestamp: getTimestamp()}
-	return table.addMetadata(metadata)
+	if len(items) == 0 {
+		return "", fmt.Errorf("File not found in metadata table")
+	}
+	// TODO: handle multiple files with the same name
+	return items[0].ObjectKey, nil
+
 }
 
 func getSha256Checksum(fileContent *[]byte) string {
 	h := sha256.New()
 	_, err := io.Copy(h, bytes.NewReader(*fileContent))
 	if err != nil {
-		slog.Error("Error calculating copying bytes in getSha256Checksum")
+		fmt.Println("Error calculating copying bytes in getSha256Checksum")
 		panic(err)
 	}
 	checksum := b64.StdEncoding.EncodeToString(h.Sum(nil))
-	slog.Debug("Checksum calculated", "checksum", checksum)
 	return checksum
 }
 
@@ -107,13 +113,27 @@ func getTimestamp() int64 {
 }
 
 func (bucket *S3FilesBucket) UploadFile(file *FileUpload) (string, error) {
-	key := bucket.BucketName
+	key := file.Name
 	_, err := bucket.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(key),
-		Key:    aws.String(file.Name),
+		Bucket: aws.String(bucket.BucketName),
+		Key:    aws.String(key),
 		Body:   bytes.NewReader(file.Content),
 	})
 	return key, err
+}
+
+func (bucket *S3FilesBucket) DownloadFile(key string) ([]byte, error) {
+	result, err := bucket.S3Client.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(bucket.BucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		fmt.Printf("Error downloading file: %s\n", err)
+		return nil, err
+	}
+	defer result.Body.Close()
+	fileContents, err := io.ReadAll(result.Body)
+	return fileContents, err
 }
 
 func createClientConnections() {
