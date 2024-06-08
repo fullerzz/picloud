@@ -15,25 +15,11 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type Tags struct {
-	Tags []string `json:"tags"`
-}
-
 type FileUpload struct {
 	Name    string   `json:"name"`
 	Size    int      `json:"size"`
 	Content []byte   `json:"content"`
 	Tags    []string `json:"tags"`
-}
-
-type FileMetadata struct {
-	Name string   `json:"name"`
-	Tags []string `json:"tags"`
-	Link string   `json:"link"`
-}
-
-type UploadedFiles struct {
-	Files []FileMetadata `json:"files"`
 }
 
 type Configuration struct {
