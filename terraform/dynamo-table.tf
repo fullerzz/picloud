@@ -2,7 +2,7 @@ resource "aws_dynamodb_table" "picloud-file-metadata-table" {
   name         = "picloud-file-metadata-table"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "file_name"
-  range_key    = "bucket_key"
+  range_key    = "object_key"
 
   attribute {
     name = "file_name"
@@ -10,7 +10,7 @@ resource "aws_dynamodb_table" "picloud-file-metadata-table" {
   }
 
   attribute {
-    name = "bucket_key"
+    name = "object_key"
     type = "S"
   }
 
