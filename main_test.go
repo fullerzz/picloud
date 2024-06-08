@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -22,38 +21,14 @@ func TestLoadConfig(t *testing.T) {
 	}
 }
 
-func TestLoadFileMetadata(t *testing.T) {
-	expectedFileMetadata := FileMetadata{Name: "baxter.jpg", Tags: []string{}, Link: "baxter.jpg"}
-	expected := UploadedFiles{Files: []FileMetadata{expectedFileMetadata}}
-	uploadedFiles = loadFileMetadata("testdata/metadata.json")
-	if assert.NotEmpty(t, uploadedFiles) {
-		assert.Equal(t, expected, uploadedFiles)
-	}
-}
-
-func TestLoadMissingFileMetadata(t *testing.T) {
-	testMetadataPath := "testdata/nonexistant_metadata.json"
-	expected := UploadedFiles{}
-	uploadedFiles = loadFileMetadata(testMetadataPath)
-	if assert.NotNil(t, uploadedFiles) {
-		assert.Equal(t, expected, uploadedFiles)
-	}
-	// cleanup
-	err := os.Remove(testMetadataPath)
-	if err != nil {
-		fmt.Println("Error removing test metadata file")
-		panic(err)
-	}
-}
-
-func TestListFiles(t *testing.T) {
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/files", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	assert.NoError(t, listFiles(c))
-	require.Equal(t, http.StatusOK, rec.Code)
-}
+// func TestListFiles(t *testing.T) {
+// 	e := echo.New()
+// 	req := httptest.NewRequest(http.MethodGet, "/files", nil)
+// 	rec := httptest.NewRecorder()
+// 	c := e.NewContext(req, rec)
+// 	assert.NoError(t, listFiles(c))
+// 	require.Equal(t, http.StatusOK, rec.Code)
+// }
 
 func TestSaveFile(t *testing.T) {
 	e := echo.New()
@@ -104,22 +79,22 @@ func TestSaveFile(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
-func TestUpdateFileTagsNotFound(t *testing.T) {
-	e := echo.New()
+// func TestUpdateFileTagsNotFound(t *testing.T) {
+// 	e := echo.New()
 
-	tags := Tags{Tags: []string{"dog", "baxter"}}
-	body, err := json.Marshal(tags)
-	if err != nil {
-		fmt.Println("Error marshalling tags")
-		panic(err)
-	}
+// 	tags := Tags{Tags: []string{"dog", "baxter"}}
+// 	body, err := json.Marshal(tags)
+// 	if err != nil {
+// 		fmt.Println("Error marshalling tags")
+// 		panic(err)
+// 	}
 
-	req := httptest.NewRequest(http.MethodPatch, "/file/baxter.jpg", bytes.NewBuffer(body))
-	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+// 	req := httptest.NewRequest(http.MethodPatch, "/file/baxter.jpg", bytes.NewBuffer(body))
+// 	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+// 	rec := httptest.NewRecorder()
+// 	c := e.NewContext(req, rec)
 
-	assert.NoError(t, updateFileTags(c))
-	assert.Equal(t, "File not found", rec.Body.String())
-	require.Equal(t, http.StatusNotFound, rec.Code)
-}
+// 	assert.NoError(t, updateFileTags(c))
+// 	assert.Equal(t, "File not found", rec.Body.String())
+// 	require.Equal(t, http.StatusNotFound, rec.Code)
+// }

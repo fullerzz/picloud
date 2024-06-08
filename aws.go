@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	b64 "encoding/base64"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -13,9 +14,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/expression"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
+
+type S3FilesBucket struct {
+	S3Client   *s3.Client
+	BucketName string
+}
 
 type MetadataTableItem struct {
 	FileName        string `dynamodbav:"file_name"`
@@ -36,6 +43,39 @@ func (table *MetadataTable) addMetadata(metadata *MetadataTableItem) error {
 	}
 	_, err = table.DynamoDBClient.PutItem(context.TODO(), &dynamodb.PutItemInput{TableName: aws.String(table.TableName), Item: item})
 	return err
+}
+
+func (table *MetadataTable) Query(filename string) ([]MetadataTableItem, error) {
+	slog.Debug("Querying metadata table", "filename", filename)
+	fmt.Printf("Querying metadata table for %s\n", filename)
+	var response *dynamodb.QueryOutput
+	var items []MetadataTableItem
+	keyExp := expression.Key("file_name").Equal(expression.Value(filename))
+	expr, err := expression.NewBuilder().WithKeyCondition(keyExp).Build()
+	if err != nil {
+		return nil, err
+	}
+	queryPaginator := dynamodb.NewQueryPaginator(table.DynamoDBClient, &dynamodb.QueryInput{
+		TableName:                 aws.String(table.TableName),
+		ExpressionAttributeNames:  expr.Names(),
+		ExpressionAttributeValues: expr.Values(),
+		KeyConditionExpression:    expr.KeyCondition(),
+	})
+
+	for queryPaginator.HasMorePages() {
+		response, err = queryPaginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		var itemsPage []MetadataTableItem
+		err = attributevalue.UnmarshalListOfMaps(response.Items, &itemsPage)
+		if err != nil {
+			slog.Error("Error unmarshalling items", "err", err)
+			return nil, err
+		}
+		items = append(items, itemsPage...)
+	}
+	return items, err
 }
 
 func writeMetadataToTable(file *FileUpload) error {
@@ -81,4 +121,27 @@ func uploadFileToS3(file *FileUpload) error {
 		return err
 	}
 	return nil
+}
+
+func createClientConnections() {
+	cfg, err := config.LoadDefaultConfig(context.TODO())
+	if err != nil {
+		slog.Error("Error loading default config", "err", err)
+		panic(err)
+	}
+	setupDynamo(cfg)
+	setupS3(cfg)
+}
+
+func setupDynamo(cfg aws.Config) {
+	client := dynamodb.NewFromConfig(cfg)
+	table := &MetadataTable{DynamoDBClient: client, TableName: os.Getenv("DYNAMODB_TABLE")}
+	metadataTable = *table
+}
+
+func setupS3(cfg aws.Config) {
+	client := s3.NewFromConfig(cfg)
+	bucket := os.Getenv("S3_BUCKET")
+	s3Bucket := &S3FilesBucket{S3Client: client, BucketName: bucket}
+	filesBucket = *s3Bucket
 }
