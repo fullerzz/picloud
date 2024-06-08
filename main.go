@@ -58,6 +58,7 @@ func loadConfig(confFileName string) {
 	}
 }
 
+// TODO: remove this as we can just query dynamo so this info is already 'loaded' at app startup
 func loadFileMetadata(metadataPath string) UploadedFiles {
 	var files UploadedFiles
 	if _, err := os.Stat(metadataPath); err == nil {
@@ -96,9 +97,9 @@ func loadFileMetadata(metadataPath string) UploadedFiles {
 // 	}
 // }
 
-func buildLink(rawFilename string) string {
-	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
-}
+// func buildLink(rawFilename string) string {
+// 	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
+// }
 
 // e.POST("/file/upload", saveFile)
 func saveFile(c echo.Context) error {
@@ -123,23 +124,18 @@ func saveFile(c echo.Context) error {
 		return err
 	}
 
-	metadata := &FileMetadata{Name: file.Filename, Tags: form.Value["tags"], Link: buildLink(file.Filename)}
+	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"]}
 
-	err = uploadFileToS3(metadata, buf.Bytes())
+	err = uploadFileToS3(fileUpload)
 	if err != nil {
 		slog.Error("Error uploading file to S3: %s", err)
 		return err
 	}
 
-	// TODO: remove the following 3 lines once the writeMetadataToTable function is implemented fully
-	// uploadedFiles.Files = append(uploadedFiles.Files, *metadata)
-	// slog.Info("Updating file metadata")
-	// go writeFileMetadata()
-
-	slog.Info("Attemting to write metadata to dynamo table")
-	err = writeMetadataToTable(file.Filename, buf.Bytes())
+	err = writeMetadataToTable(fileUpload)
 	if err != nil {
-		slog.Error("Error writing metadata to table: %v\n", err)
+		slog.Error("Error writing metadata to table", "err", err)
+		return err
 	}
 
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
