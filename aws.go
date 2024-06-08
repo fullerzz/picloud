@@ -38,14 +38,14 @@ func (table *MetadataTable) addMetadata(metadata *MetadataTableItem) error {
 	return err
 }
 
-func writeMetadataToTable(fileName string, fileContent []byte) error {
+func writeMetadataToTable(file *FileUpload) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
 	client := dynamodb.NewFromConfig(cfg)
 	table := &MetadataTable{DynamoDBClient: client, TableName: os.Getenv("DYNAMODB_TABLE")}
-	metadata := &MetadataTableItem{FileName: fileName, Sha256: getSha256Checksum(&fileContent), FileExtension: "TODO", UploadTimestamp: getTimestamp()}
+	metadata := &MetadataTableItem{FileName: file.Name, Sha256: getSha256Checksum(&file.Content), FileExtension: "TODO", UploadTimestamp: getTimestamp()}
 	return table.addMetadata(metadata)
 }
 
@@ -65,7 +65,7 @@ func getTimestamp() int64 {
 	return time.Now().UTC().UnixMilli()
 }
 
-func uploadFileToS3(metadata *FileMetadata, fileContent []byte) error {
+func uploadFileToS3(file *FileUpload) error {
 	bucket := os.Getenv("S3_BUCKET")
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
@@ -74,8 +74,8 @@ func uploadFileToS3(metadata *FileMetadata, fileContent []byte) error {
 	client := s3.NewFromConfig(cfg)
 	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
-		Key:    aws.String(metadata.Name),
-		Body:   bytes.NewReader(fileContent),
+		Key:    aws.String(file.Name),
+		Body:   bytes.NewReader(file.Content),
 	})
 	if err != nil {
 		return err
