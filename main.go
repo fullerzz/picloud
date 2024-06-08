@@ -83,18 +83,18 @@ func loadFileMetadata(metadataPath string) UploadedFiles {
 	return files
 }
 
-func writeFileMetadata() {
-	data, err := json.Marshal(uploadedFiles)
-	if err != nil {
-		slog.Error("Error marshalling metadata")
-		panic(err)
-	}
-	err = os.WriteFile("metadata.json", data, 0644)
-	if err != nil {
-		slog.Error("Error writing metadata")
-		panic(err)
-	}
-}
+// func writeFileMetadata() {
+// 	data, err := json.Marshal(uploadedFiles)
+// 	if err != nil {
+// 		slog.Error("Error marshalling metadata")
+// 		panic(err)
+// 	}
+// 	err = os.WriteFile("metadata.json", data, 0644)
+// 	if err != nil {
+// 		slog.Error("Error writing metadata")
+// 		panic(err)
+// 	}
+// }
 
 func buildLink(rawFilename string) string {
 	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
@@ -132,11 +132,12 @@ func saveFile(c echo.Context) error {
 	}
 
 	// TODO: remove the following 3 lines once the writeMetadataToTable function is implemented fully
-	uploadedFiles.Files = append(uploadedFiles.Files, *metadata)
-	slog.Info("Updating file metadata")
-	go writeFileMetadata()
+	// uploadedFiles.Files = append(uploadedFiles.Files, *metadata)
+	// slog.Info("Updating file metadata")
+	// go writeFileMetadata()
 
-	err = writeMetadataToTable(file.Filename)
+	slog.Info("Attemting to write metadata to dynamo table")
+	err = writeMetadataToTable(file.Filename, buf.Bytes())
 	if err != nil {
 		slog.Error("Error writing metadata to table: %v\n", err)
 	}
