@@ -79,13 +79,13 @@ func saveFile(c echo.Context) error {
 
 	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"]}
 
-	err = filesBucket.UploadFile(fileUpload)
+	bucketKey, err := filesBucket.UploadFile(fileUpload)
 	if err != nil {
 		slog.Error("Error uploading file to S3: %s", err)
 		return err
 	}
 
-	err = writeMetadataToTable(fileUpload)
+	err = writeMetadataToTable(fileUpload, bucketKey)
 	if err != nil {
 		slog.Error("Error writing metadata to table", "err", err)
 		return err
@@ -96,6 +96,24 @@ func saveFile(c echo.Context) error {
 
 // e.GET("/file/:name", getFile)
 func getFile(c echo.Context) error {
+	encodedName := c.Param("name")
+	name, err := url.QueryUnescape(encodedName)
+	if err != nil {
+		return err
+	}
+	files, err := metadataTable.Query(name)
+	if err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	return c.JSON(http.StatusOK, files)
+}
+
+// e.GET("/file/:name/metadata", getFileMetadata)
+func getFileMetadata(c echo.Context) error {
 	encodedName := c.Param("name")
 	name, err := url.QueryUnescape(encodedName)
 	if err != nil {
@@ -168,6 +186,7 @@ func main() {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 	e.GET("/file/:name", getFile)
+	e.GET("/file/:name/metadata", getFileMetadata)
 	// e.PATCH("/file/:name", updateFileTags)
 	e.POST("/file/upload", saveFile)
 	// e.GET("/files", listFiles)

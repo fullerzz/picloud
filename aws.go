@@ -26,6 +26,7 @@ type S3FilesBucket struct {
 
 type MetadataTableItem struct {
 	FileName        string `dynamodbav:"file_name"`
+	BucketKey       string `dynamodbav:"bucket_key"`
 	Sha256          string `dynamodbav:"file_sha256"`
 	FileExtension   string `dynamodbav:"file_extension"`
 	UploadTimestamp int64  `dynamodbav:"upload_timestamp"`
@@ -78,14 +79,14 @@ func (table *MetadataTable) Query(filename string) ([]MetadataTableItem, error) 
 	return items, err
 }
 
-func writeMetadataToTable(file *FileUpload) error {
+func writeMetadataToTable(file *FileUpload, bucketKey string) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return err
 	}
 	client := dynamodb.NewFromConfig(cfg)
 	table := &MetadataTable{DynamoDBClient: client, TableName: os.Getenv("DYNAMODB_TABLE")}
-	metadata := &MetadataTableItem{FileName: file.Name, Sha256: getSha256Checksum(&file.Content), FileExtension: "TODO", UploadTimestamp: getTimestamp()}
+	metadata := &MetadataTableItem{FileName: file.Name, BucketKey: bucketKey, Sha256: getSha256Checksum(&file.Content), FileExtension: "TODO", UploadTimestamp: getTimestamp()}
 	return table.addMetadata(metadata)
 }
 
@@ -105,13 +106,14 @@ func getTimestamp() int64 {
 	return time.Now().UTC().UnixMilli()
 }
 
-func (bucket *S3FilesBucket) UploadFile(file *FileUpload) error {
+func (bucket *S3FilesBucket) UploadFile(file *FileUpload) (string, error) {
+	key := bucket.BucketName
 	_, err := bucket.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucket.BucketName),
+		Bucket: aws.String(key),
 		Key:    aws.String(file.Name),
 		Body:   bytes.NewReader(file.Content),
 	})
-	return err
+	return key, err
 }
 
 func createClientConnections() {
