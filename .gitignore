@@ -44,3 +44,7 @@ terraform.tfstate
 **/*.tfstate
 **/*.tfstate.*
 **/dist/*
+
+
+# Local helper scripts
+scripts/set_env_vars_and_run.sh
