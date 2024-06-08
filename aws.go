@@ -105,22 +105,13 @@ func getTimestamp() int64 {
 	return time.Now().UTC().UnixMilli()
 }
 
-func uploadFileToS3(file *FileUpload) error {
-	bucket := os.Getenv("S3_BUCKET")
-	cfg, err := config.LoadDefaultConfig(context.TODO())
-	if err != nil {
-		return err
-	}
-	client := s3.NewFromConfig(cfg)
-	_, err = client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucket),
+func (bucket *S3FilesBucket) UploadFile(file *FileUpload) error {
+	_, err := bucket.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(bucket.BucketName),
 		Key:    aws.String(file.Name),
 		Body:   bytes.NewReader(file.Content),
 	})
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func createClientConnections() {
