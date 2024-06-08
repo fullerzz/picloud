@@ -2,10 +2,15 @@ resource "aws_dynamodb_table" "picloud-file-metadata-table" {
   name         = "picloud-file-metadata-table"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "file_name"
-  range_key    = "file_sha256"
+  range_key    = "bucket_key"
 
   attribute {
     name = "file_name"
+    type = "S"
+  }
+
+  attribute {
+    name = "bucket_key"
     type = "S"
   }
 
@@ -29,6 +34,12 @@ resource "aws_dynamodb_table" "picloud-file-metadata-table" {
     name            = "FileExtensionIndex"
     hash_key        = "file_extension"
     range_key       = "file_sha256"
+    projection_type = "ALL"
+  }
+
+  global_secondary_index {
+    name            = "Sha256ChecksumIndex"
+    hash_key        = "file_sha256"
     projection_type = "ALL"
   }
 
