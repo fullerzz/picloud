@@ -79,7 +79,7 @@ func saveFile(c echo.Context) error {
 
 	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"]}
 
-	err = uploadFileToS3(fileUpload)
+	err = filesBucket.UploadFile(fileUpload)
 	if err != nil {
 		slog.Error("Error uploading file to S3: %s", err)
 		return err
