@@ -131,24 +131,20 @@ func listFiles(c echo.Context) error {
 }
 
 // e.GET("/files/search", searchFiles)
-// func searchFiles(c echo.Context) error {
-// 	tag := c.QueryParam("tag")
-// 	// search for the tag in the uploadedFiles
-// 	var foundFiles []FileMetadata
-// 	for _, file := range uploadedFiles.Files {
-// 		for _, t := range file.Tags {
-// 			if t == tag {
-// 				foundFiles = append(foundFiles, file)
-// 				break
-// 			}
-// 		}
-// 	}
-// 	if len(foundFiles) == 0 {
-// 		return c.NoContent(http.StatusNoContent)
-// 	} else {
-// 		return c.JSON(http.StatusOK, foundFiles)
-// 	}
-// }
+func searchFiles(c echo.Context) error {
+	tag := c.QueryParam("tag")
+	// search for the tag in the uploadedFiles
+	foundFiles, err := metadataTable.QueryTags(tag)
+	if err != nil {
+		slog.Error("Error querying metadata table", "err", err)
+		return c.JSON(http.StatusInternalServerError, `{"error": "Error searching files"}`)
+	}
+	if len(foundFiles) == 0 {
+		return c.NoContent(http.StatusNoContent)
+	} else {
+		return c.JSON(http.StatusOK, foundFiles)
+	}
+}
 
 func main() {
 	loadConfig("conf.json")
@@ -185,7 +181,7 @@ func main() {
 	// e.PATCH("/file/:name", updateFileTags)
 	e.POST("/file/upload", saveFile)
 	e.GET("/files", listFiles)
-	// e.GET("/files/search", searchFiles)
+	e.GET("/files/search", searchFiles)
 
 	e.Logger.Fatal(e.Start(":1234"))
 }
