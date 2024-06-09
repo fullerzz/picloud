@@ -59,7 +59,7 @@ func saveFile(c echo.Context) error {
 
 	buf := bytes.NewBuffer(nil)
 	if _, err := io.Copy(buf, src); err != nil {
-		slog.Error("Error copying file: %s", err)
+		slog.Error("Error copying file: %s", "err", err)
 		return err
 	}
 
@@ -67,7 +67,7 @@ func saveFile(c echo.Context) error {
 
 	objectKey, err := filesBucket.UploadFile(fileUpload)
 	if err != nil {
-		slog.Error("Error uploading file to S3: %s", err)
+		slog.Error("Error uploading file to S3: %s", "err", err)
 		return err
 	}
 
@@ -99,7 +99,7 @@ func getFile(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, "Error downloading file from S3")
 	}
 
-	return c.Blob(http.StatusOK, "application/octet-stream", fileContent)
+	return c.Blob(http.StatusOK, http.DetectContentType(fileContent), fileContent)
 }
 
 // e.GET("/file/:name/metadata", getFileMetadata)
