@@ -47,7 +47,6 @@ func (table *MetadataTable) addMetadata(metadata *MetadataTableItem) error {
 }
 
 func (table *MetadataTable) Query(filename string) ([]MetadataTableItem, error) {
-	slog.Debug("Querying metadata table", "filename", filename)
 	fmt.Printf("Querying metadata table for %s\n", filename)
 	var response *dynamodb.QueryOutput
 	var items []MetadataTableItem
@@ -77,6 +76,26 @@ func (table *MetadataTable) Query(filename string) ([]MetadataTableItem, error) 
 		items = append(items, itemsPage...)
 	}
 	return items, err
+}
+
+func (table *MetadataTable) Scan() ([]MetadataTableItem, error) {
+	var items []MetadataTableItem
+	scanPaginator := dynamodb.NewScanPaginator(table.DynamoDBClient, &dynamodb.ScanInput{
+		TableName: aws.String(table.TableName),
+	})
+	for scanPaginator.HasMorePages() {
+		response, err := scanPaginator.NextPage(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		var itemsPage []MetadataTableItem
+		err = attributevalue.UnmarshalListOfMaps(response.Items, &itemsPage)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, itemsPage...)
+	}
+	return items, nil
 }
 
 func writeMetadataToTable(file *FileUpload, objectKey string) error {

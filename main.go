@@ -121,9 +121,14 @@ func getFileMetadata(c echo.Context) error {
 }
 
 // e.GET("/files", listFiles)
-// func listFiles(c echo.Context) error {
-// 	return c.JSON(http.StatusOK, uploadedFiles)
-// }
+func listFiles(c echo.Context) error {
+	files, err := metadataTable.Scan()
+	if err != nil {
+		slog.Error("Error scanning metadata table", "err", err)
+		return c.JSON(http.StatusInternalServerError, `{"error": "Error listing files"}`)
+	}
+	return c.JSON(http.StatusOK, files)
+}
 
 // e.GET("/files/search", searchFiles)
 // func searchFiles(c echo.Context) error {
@@ -179,7 +184,7 @@ func main() {
 	e.GET("/file/:name/metadata", getFileMetadata)
 	// e.PATCH("/file/:name", updateFileTags)
 	e.POST("/file/upload", saveFile)
-	// e.GET("/files", listFiles)
+	e.GET("/files", listFiles)
 	// e.GET("/files/search", searchFiles)
 
 	e.Logger.Fatal(e.Start(":1234"))
