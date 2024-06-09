@@ -19,18 +19,18 @@ import (
 )
 
 type FileUpload struct {
-	Name    string   `json:"name"`
-	Size    int      `json:"size"`
-	Content []byte   `json:"content"`
-	Tags    []string `json:"tags"`
+	Name    string `json:"name"`
+	Size    int    `json:"size"`
+	Content []byte `json:"content"`
+	Tags    string `json:"tags"`
 }
 
 type SQLTableItem struct {
-	FileName        string   `json:"file_name"`
-	ObjectKey       string   `json:"object_key"`
-	Sha256          string   `json:"file_sha256"`
-	UploadTimestamp int64    `json:"upload_timestamp"`
-	Tags            []string `json:"tags"` // TODO: Change to string
+	FileName        string `json:"file_name"`
+	ObjectKey       string `json:"object_key"`
+	Sha256          string `json:"file_sha256"`
+	UploadTimestamp int64  `json:"upload_timestamp"`
+	Tags            string `json:"tags"` // comma separated tags
 }
 
 type Configuration struct {
@@ -62,6 +62,24 @@ func connectDatabase() error {
 	return nil
 }
 
+func addMetadataToTable(metadata *SQLTableItem) error {
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare("INSERT INTO file_metadata (file_name, object_key, file_sha256, upload_timestamp, tags) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(metadata.FileName, metadata.ObjectKey, metadata.Sha256, metadata.UploadTimestamp, metadata.Tags)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
+	return err
+}
+
 // e.POST("/file/upload", saveFile)
 func saveFile(c echo.Context) error {
 	form, err := c.MultipartForm()
@@ -84,8 +102,7 @@ func saveFile(c echo.Context) error {
 		slog.Error("Error copying file: %s", "err", err)
 		return err
 	}
-
-	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"]}
+	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"][0]} // TODO: handle multiple tags
 
 	objectKey, err := filesBucket.UploadFile(fileUpload)
 	if err != nil {
@@ -93,7 +110,8 @@ func saveFile(c echo.Context) error {
 		return err
 	}
 
-	err = writeMetadataToTable(fileUpload, objectKey)
+	// err = writeMetadataToTable(fileUpload, objectKey)
+	err = addMetadataToTable(&SQLTableItem{FileName: fileUpload.Name, ObjectKey: objectKey, Sha256: getSha256Checksum(&fileUpload.Content), UploadTimestamp: getTimestamp(), Tags: fileUpload.Tags})
 	if err != nil {
 		slog.Error("Error writing metadata to table", "err", err)
 		return err

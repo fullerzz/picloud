@@ -25,26 +25,17 @@ type S3FilesBucket struct {
 }
 
 type MetadataTableItem struct {
-	FileName        string   `dynamodbav:"file_name"`
-	ObjectKey       string   `dynamodbav:"object_key"`
-	Sha256          string   `dynamodbav:"file_sha256"`
-	FileExtension   string   `dynamodbav:"file_extension"`
-	UploadTimestamp int64    `dynamodbav:"upload_timestamp"`
-	Tags            []string `dynamodbav:"tags"`
+	FileName        string `dynamodbav:"file_name"`
+	ObjectKey       string `dynamodbav:"object_key"`
+	Sha256          string `dynamodbav:"file_sha256"`
+	FileExtension   string `dynamodbav:"file_extension"`
+	UploadTimestamp int64  `dynamodbav:"upload_timestamp"`
+	Tags            string `dynamodbav:"tags"`
 }
 
 type MetadataTable struct {
 	DynamoDBClient *dynamodb.Client
 	TableName      string
-}
-
-func (table *MetadataTable) addMetadata(metadata *MetadataTableItem) error {
-	item, err := attributevalue.MarshalMap(metadata)
-	if err != nil {
-		panic(err)
-	}
-	_, err = table.DynamoDBClient.PutItem(context.TODO(), &dynamodb.PutItemInput{TableName: aws.String(table.TableName), Item: item})
-	return err
 }
 
 func (table *MetadataTable) Query(filename string) ([]MetadataTableItem, error) {
@@ -128,18 +119,6 @@ func (table *MetadataTable) Scan() ([]MetadataTableItem, error) {
 		items = append(items, itemsPage...)
 	}
 	return items, nil
-}
-
-func writeMetadataToTable(file *FileUpload, objectKey string) error {
-	metadata := &MetadataTableItem{
-		FileName:        file.Name,
-		ObjectKey:       objectKey,
-		Sha256:          getSha256Checksum(&file.Content),
-		FileExtension:   "TODO",
-		UploadTimestamp: getTimestamp(),
-		Tags:            file.Tags,
-	}
-	return metadataTable.addMetadata(metadata)
 }
 
 func getObjectKey(filename string) (string, error) {
