@@ -29,6 +29,7 @@ go.work
 main
 uploads/
 picloud
+*.db
 
 # Keep config
 !conf.json

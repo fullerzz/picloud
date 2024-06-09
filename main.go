@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -22,11 +25,20 @@ type FileUpload struct {
 	Tags    []string `json:"tags"`
 }
 
+type SQLTableItem struct {
+	FileName        string   `json:"file_name"`
+	ObjectKey       string   `json:"object_key"`
+	Sha256          string   `json:"file_sha256"`
+	UploadTimestamp int64    `json:"upload_timestamp"`
+	Tags            []string `json:"tags"` // TODO: Change to string
+}
+
 type Configuration struct {
 	FilePrefix string
 }
 
 var conf Configuration
+var DB *sql.DB
 var metadataTable MetadataTable
 var filesBucket S3FilesBucket
 
@@ -38,6 +50,16 @@ func loadConfig(confFileName string) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func connectDatabase() error {
+	db, err := sql.Open("sqlite3", "./metadata.db")
+	if err != nil {
+		return err
+	}
+
+	DB = db
+	return nil
 }
 
 // e.POST("/file/upload", saveFile)
@@ -148,6 +170,10 @@ func searchFiles(c echo.Context) error {
 
 func main() {
 	loadConfig("conf.json")
+	err := connectDatabase()
+	if err != nil {
+		panic(err)
+	}
 	createClientConnections()
 	e := echo.New()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
