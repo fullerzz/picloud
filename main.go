@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -25,20 +24,11 @@ type FileUpload struct {
 	Tags    string `json:"tags"`
 }
 
-type SQLTableItem struct {
-	FileName        string `json:"file_name"`
-	ObjectKey       string `json:"object_key"`
-	Sha256          string `json:"file_sha256"`
-	UploadTimestamp int64  `json:"upload_timestamp"`
-	Tags            string `json:"tags"` // comma separated tags
-}
-
 type Configuration struct {
 	FilePrefix string
 }
 
 var conf Configuration
-var DB *sql.DB
 var metadataTable MetadataTable
 var filesBucket S3FilesBucket
 
@@ -50,34 +40,6 @@ func loadConfig(confFileName string) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func connectDatabase() error {
-	db, err := sql.Open("sqlite3", "./metadata.db")
-	if err != nil {
-		return err
-	}
-
-	DB = db
-	return nil
-}
-
-func addMetadataToTable(metadata *SQLTableItem) error {
-	tx, err := DB.Begin()
-	if err != nil {
-		return err
-	}
-	stmt, err := tx.Prepare("INSERT INTO file_metadata (file_name, object_key, file_sha256, upload_timestamp, tags) VALUES (?, ?, ?, ?, ?)")
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-	_, err = stmt.Exec(metadata.FileName, metadata.ObjectKey, metadata.Sha256, metadata.UploadTimestamp, metadata.Tags)
-	if err != nil {
-		return err
-	}
-	err = tx.Commit()
-	return err
 }
 
 // e.POST("/file/upload", saveFile)
@@ -144,6 +106,7 @@ func getFile(c echo.Context) error {
 
 // e.GET("/file/:name/metadata", getFileMetadata)
 func getFileMetadata(c echo.Context) error {
+	// TODO: Update this function to use sqlite instead do dynamodb
 	encodedName := c.Param("name")
 	name, err := url.QueryUnescape(encodedName)
 	if err != nil {
@@ -162,7 +125,7 @@ func getFileMetadata(c echo.Context) error {
 
 // e.GET("/files", listFiles)
 func listFiles(c echo.Context) error {
-	files, err := metadataTable.Scan()
+	files, err := listFilesInTable()
 	if err != nil {
 		slog.Error("Error scanning metadata table", "err", err)
 		return c.JSON(http.StatusInternalServerError, `{"error": "Error listing files"}`)
