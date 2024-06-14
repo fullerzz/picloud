@@ -114,8 +114,12 @@ func getFileMetadata(c echo.Context) error {
 	item, err := getFileMetadataFromTable(name)
 
 	if err != nil {
-		slog.Error("Error getting metadata from table", "err", err, "filename", name)
-		return err
+		slog.Error("Error getting metadata from table", "err", err, "errorMessage", err.Error(), "filename", name)
+		if err.Error() == "sql: no rows in result set" {
+			return c.JSON(http.StatusNotFound, `{"error": "File not found"}`)
+		} else {
+			return c.JSON(http.StatusInternalServerError, `{"error": "Error getting metadata"}`)
+		}
 	}
 
 	return c.JSON(http.StatusOK, item)
