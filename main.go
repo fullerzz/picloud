@@ -106,21 +106,19 @@ func getFile(c echo.Context) error {
 
 // e.GET("/file/:name/metadata", getFileMetadata)
 func getFileMetadata(c echo.Context) error {
-	// TODO: Update this function to use sqlite instead do dynamodb
 	encodedName := c.Param("name")
 	name, err := url.QueryUnescape(encodedName)
 	if err != nil {
 		return err
 	}
-	files, err := metadataTable.Query(name)
+	item, err := getFileMetadataFromTable(name)
+
 	if err != nil {
+		slog.Error("Error getting metadata from table", "err", err, "filename", name)
 		return err
 	}
-	if len(files) == 0 {
-		return c.NoContent(http.StatusNotFound)
-	}
 
-	return c.JSON(http.StatusOK, files)
+	return c.JSON(http.StatusOK, item)
 }
 
 // e.GET("/files", listFiles)

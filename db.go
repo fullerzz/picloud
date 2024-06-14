@@ -58,3 +58,13 @@ func listFilesInTable() ([]SQLTableItem, error) {
 	}
 	return files, nil
 }
+
+func getFileMetadataFromTable(filename string) (*SQLTableItem, error) {
+	row := DB.QueryRow("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata WHERE file_name = ?", filename)
+	var file SQLTableItem
+	err := row.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
+	if err != nil {
+		return nil, err
+	}
+	return &file, nil
+}
