@@ -29,7 +29,6 @@ type Configuration struct {
 }
 
 var conf Configuration
-var metadataTable MetadataTable
 var filesBucket S3FilesBucket
 
 func loadConfig(confFileName string) {
@@ -73,7 +72,7 @@ func saveFile(c echo.Context) error {
 	}
 
 	// err = writeMetadataToTable(fileUpload, objectKey)
-	err = addMetadataToTable(&SQLTableItem{FileName: fileUpload.Name, ObjectKey: objectKey, Sha256: getSha256Checksum(&fileUpload.Content), UploadTimestamp: getTimestamp(), Tags: fileUpload.Tags})
+	err = addMetadataToTable(&FileMetadataRecord{FileName: fileUpload.Name, ObjectKey: objectKey, Sha256: getSha256Checksum(&fileUpload.Content), UploadTimestamp: getTimestamp(), Tags: fileUpload.Tags})
 	if err != nil {
 		slog.Error("Error writing metadata to table", "err", err)
 		return err
@@ -140,7 +139,7 @@ func listFiles(c echo.Context) error {
 func searchFiles(c echo.Context) error {
 	tag := c.QueryParam("tag")
 	// search for the tag in the uploadedFiles
-	foundFiles, err := metadataTable.QueryTags(tag)
+	foundFiles, err := queryTags(tag)
 	if err != nil {
 		slog.Error("Error querying metadata table", "err", err)
 		return c.JSON(http.StatusInternalServerError, `{"error": "Error searching files"}`)

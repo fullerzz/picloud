@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type SQLTableItem struct {
+type FileMetadataRecord struct {
 	FileName        string `json:"file_name"`
 	ObjectKey       string `json:"object_key"`
 	Sha256          string `json:"file_sha256"`
@@ -30,7 +30,7 @@ func connectDatabase() error {
 	return nil
 }
 
-func addMetadataToTable(metadata *SQLTableItem) error {
+func addMetadataToTable(metadata *FileMetadataRecord) error {
 	tx, err := DB.Begin()
 	if err != nil {
 		return err
@@ -48,16 +48,16 @@ func addMetadataToTable(metadata *SQLTableItem) error {
 	return err
 }
 
-func listFilesInTable() ([]SQLTableItem, error) {
+func listFilesInTable() ([]FileMetadataRecord, error) {
 	rows, err := DB.Query("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var files []SQLTableItem
+	var files []FileMetadataRecord
 	for rows.Next() {
-		var file SQLTableItem
+		var file FileMetadataRecord
 		err = rows.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
 		if err != nil {
 			return nil, err
@@ -67,9 +67,9 @@ func listFilesInTable() ([]SQLTableItem, error) {
 	return files, nil
 }
 
-func getFileMetadataFromTable(filename string) (*SQLTableItem, error) {
+func getFileMetadataFromTable(filename string) (*FileMetadataRecord, error) {
 	row := DB.QueryRow("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata WHERE file_name = ?", filename)
-	var file SQLTableItem
+	var file FileMetadataRecord
 	err := row.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
 	if err != nil {
 		return nil, err
@@ -77,9 +77,28 @@ func getFileMetadataFromTable(filename string) (*SQLTableItem, error) {
 	return &file, nil
 }
 
+func queryTags(tagName string) ([]FileMetadataRecord, error) {
+	rows, err := DB.Query("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata WHERE tags LIKE ?", "%"+tagName+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var files []FileMetadataRecord
+	for rows.Next() {
+		var file FileMetadataRecord
+		err = rows.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, file)
+	}
+	return files, nil
+}
+
 func getObjectKey(filename string) (string, error) {
 	row := DB.QueryRow("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata WHERE file_name = ?", filename)
-	var file SQLTableItem
+	var file FileMetadataRecord
 	err := row.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
 	if err != nil {
 		return "", err
