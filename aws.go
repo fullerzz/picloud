@@ -35,38 +35,6 @@ type MetadataTable struct {
 	TableName      string
 }
 
-func (table *MetadataTable) Query(filename string) ([]MetadataTableItem, error) {
-	fmt.Printf("Querying metadata table for %s\n", filename)
-	var response *dynamodb.QueryOutput
-	var items []MetadataTableItem
-	keyExp := expression.Key("file_name").Equal(expression.Value(filename))
-	expr, err := expression.NewBuilder().WithKeyCondition(keyExp).Build()
-	if err != nil {
-		return nil, err
-	}
-	queryPaginator := dynamodb.NewQueryPaginator(table.DynamoDBClient, &dynamodb.QueryInput{
-		TableName:                 aws.String(table.TableName),
-		ExpressionAttributeNames:  expr.Names(),
-		ExpressionAttributeValues: expr.Values(),
-		KeyConditionExpression:    expr.KeyCondition(),
-	})
-
-	for queryPaginator.HasMorePages() {
-		response, err = queryPaginator.NextPage(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-		var itemsPage []MetadataTableItem
-		err = attributevalue.UnmarshalListOfMaps(response.Items, &itemsPage)
-		if err != nil {
-			slog.Error("Error unmarshalling items", "err", err)
-			return nil, err
-		}
-		items = append(items, itemsPage...)
-	}
-	return items, err
-}
-
 func (table *MetadataTable) QueryTags(tagName string) ([]MetadataTableItem, error) {
 	// FIXME: This is not working
 	var items []MetadataTableItem
@@ -82,26 +50,6 @@ func (table *MetadataTable) QueryTags(tagName string) ([]MetadataTableItem, erro
 		ExpressionAttributeValues: expr.Values(),
 		FilterExpression:          expr.Filter(),
 		ProjectionExpression:      expr.Projection(),
-	})
-	for scanPaginator.HasMorePages() {
-		response, err := scanPaginator.NextPage(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-		var itemsPage []MetadataTableItem
-		err = attributevalue.UnmarshalListOfMaps(response.Items, &itemsPage)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, itemsPage...)
-	}
-	return items, nil
-}
-
-func (table *MetadataTable) Scan() ([]MetadataTableItem, error) {
-	var items []MetadataTableItem
-	scanPaginator := dynamodb.NewScanPaginator(table.DynamoDBClient, &dynamodb.ScanInput{
-		TableName: aws.String(table.TableName),
 	})
 	for scanPaginator.HasMorePages() {
 		response, err := scanPaginator.NextPage(context.TODO())
