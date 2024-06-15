@@ -71,7 +71,6 @@ func saveFile(c echo.Context) error {
 		return err
 	}
 
-	// err = writeMetadataToTable(fileUpload, objectKey)
 	err = addMetadataToTable(&FileMetadataRecord{FileName: fileUpload.Name, ObjectKey: objectKey, Sha256: getSha256Checksum(&fileUpload.Content), UploadTimestamp: getTimestamp(), Tags: fileUpload.Tags})
 	if err != nil {
 		slog.Error("Error writing metadata to table", "err", err)
