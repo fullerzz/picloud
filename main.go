@@ -92,7 +92,8 @@ func getFile(c echo.Context) error {
 
 	objectKey, err := getObjectKey(filename)
 	if err != nil {
-		return err
+		slog.Error("Error getting object key from metadata table", "err", err, "filename", filename)
+		return c.String(http.StatusInternalServerError, "Error getting object key from metadata table")
 	}
 
 	fileContent, err := filesBucket.DownloadFile(objectKey)

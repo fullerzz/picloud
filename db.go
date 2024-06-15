@@ -1,6 +1,14 @@
 package main
 
-import "database/sql"
+import (
+	"bytes"
+	"crypto/sha256"
+	"database/sql"
+	b64 "encoding/base64"
+	"fmt"
+	"io"
+	"time"
+)
 
 type SQLTableItem struct {
 	FileName        string `json:"file_name"`
@@ -67,4 +75,30 @@ func getFileMetadataFromTable(filename string) (*SQLTableItem, error) {
 		return nil, err
 	}
 	return &file, nil
+}
+
+func getObjectKey(filename string) (string, error) {
+	row := DB.QueryRow("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata WHERE file_name = ?", filename)
+	var file SQLTableItem
+	err := row.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
+	if err != nil {
+		return "", err
+	}
+	return file.ObjectKey, nil
+
+}
+
+func getSha256Checksum(fileContent *[]byte) string {
+	h := sha256.New()
+	_, err := io.Copy(h, bytes.NewReader(*fileContent))
+	if err != nil {
+		fmt.Println("Error calculating copying bytes in getSha256Checksum")
+		panic(err)
+	}
+	checksum := b64.StdEncoding.EncodeToString(h.Sum(nil))
+	return checksum
+}
+
+func getTimestamp() int64 {
+	return time.Now().UTC().UnixMilli()
 }

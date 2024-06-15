@@ -3,13 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	b64 "encoding/base64"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -119,34 +116,6 @@ func (table *MetadataTable) Scan() ([]MetadataTableItem, error) {
 		items = append(items, itemsPage...)
 	}
 	return items, nil
-}
-
-func getObjectKey(filename string) (string, error) {
-	items, err := metadataTable.Query(filename)
-	if err != nil {
-		return "", err
-	}
-	if len(items) == 0 {
-		return "", fmt.Errorf("File not found in metadata table")
-	}
-	// TODO: handle multiple files with the same name
-	return items[0].ObjectKey, nil
-
-}
-
-func getSha256Checksum(fileContent *[]byte) string {
-	h := sha256.New()
-	_, err := io.Copy(h, bytes.NewReader(*fileContent))
-	if err != nil {
-		fmt.Println("Error calculating copying bytes in getSha256Checksum")
-		panic(err)
-	}
-	checksum := b64.StdEncoding.EncodeToString(h.Sum(nil))
-	return checksum
-}
-
-func getTimestamp() int64 {
-	return time.Now().UTC().UnixMilli()
 }
 
 func (bucket *S3FilesBucket) UploadFile(file *FileUpload) (string, error) {
