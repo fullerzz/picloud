@@ -1,5 +1,5 @@
 resource "aws_iam_user" "picloud" {
-  name = "picloud"
+  name = "picloud-${var.env}"
 }
 
 resource "aws_iam_access_key" "picloud" {
@@ -20,7 +20,7 @@ data "aws_iam_policy_document" "picloud-s3-policy" {
 }
 
 resource "aws_iam_user_policy" "picloud-s3-policy" {
-  name   = "picloud-s3-policy"
+  name   = "picloud-${var.env}-s3-policy"
   user   = aws_iam_user.picloud.name
   policy = data.aws_iam_policy_document.picloud-s3-policy.json
 }

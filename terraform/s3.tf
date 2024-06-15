@@ -1,8 +1,8 @@
 resource "aws_s3_bucket" "picloud-bucket" {
-  bucket_prefix = "picloud-bucket"
+  bucket_prefix = "picloud-bucket-${var.env}"
 
   tags = {
-    name        = "picloud-bucket"
+    name        = "picloud-bucket-${var.env}"
     environment = var.env
   }
 }
