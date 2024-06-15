@@ -15,6 +15,7 @@ provider "aws" {
       deployment = "OpenTofu"
       project    = "picloud"
       repo       = "https://github.com/fullerzz/picloud"
+      environment = var.env
     }
   }
 }

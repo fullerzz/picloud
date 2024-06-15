@@ -3,7 +3,7 @@ resource "aws_s3_bucket" "picloud-bucket" {
 
   tags = {
     name        = "picloud-bucket"
-    environment = "dev"
+    environment = var.env
   }
 }
 

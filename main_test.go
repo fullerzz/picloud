@@ -31,6 +31,7 @@ func TestLoadConfig(t *testing.T) {
 // }
 
 func TestSaveFile(t *testing.T) {
+	// TODO: Mock S3FilesBucket for tests
 	e := echo.New()
 
 	// create a multipart form for test request

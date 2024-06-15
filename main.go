@@ -11,15 +11,17 @@ import (
 	"net/url"
 	"os"
 
+	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 type FileUpload struct {
-	Name    string   `json:"name"`
-	Size    int      `json:"size"`
-	Content []byte   `json:"content"`
-	Tags    []string `json:"tags"`
+	Name    string `json:"name"`
+	Size    int    `json:"size"`
+	Content []byte `json:"content"`
+	Tags    string `json:"tags"`
 }
 
 type Configuration struct {
@@ -27,7 +29,6 @@ type Configuration struct {
 }
 
 var conf Configuration
-var metadataTable MetadataTable
 var filesBucket S3FilesBucket
 
 func loadConfig(confFileName string) {
@@ -62,8 +63,7 @@ func saveFile(c echo.Context) error {
 		slog.Error("Error copying file: %s", "err", err)
 		return err
 	}
-
-	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"]}
+	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"][0]} // TODO: handle multiple tags
 
 	objectKey, err := filesBucket.UploadFile(fileUpload)
 	if err != nil {
@@ -71,7 +71,7 @@ func saveFile(c echo.Context) error {
 		return err
 	}
 
-	err = writeMetadataToTable(fileUpload, objectKey)
+	err = addMetadataToTable(&FileMetadataRecord{FileName: fileUpload.Name, ObjectKey: objectKey, Sha256: getSha256Checksum(&fileUpload.Content), UploadTimestamp: getTimestamp(), Tags: fileUpload.Tags})
 	if err != nil {
 		slog.Error("Error writing metadata to table", "err", err)
 		return err
@@ -90,7 +90,8 @@ func getFile(c echo.Context) error {
 
 	objectKey, err := getObjectKey(filename)
 	if err != nil {
-		return err
+		slog.Error("Error getting object key from metadata table", "err", err, "filename", filename)
+		return c.String(http.StatusInternalServerError, "Error getting object key from metadata table")
 	}
 
 	fileContent, err := filesBucket.DownloadFile(objectKey)
@@ -109,20 +110,23 @@ func getFileMetadata(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	files, err := metadataTable.Query(name)
+	item, err := getFileMetadataFromTable(name)
+
 	if err != nil {
-		return err
-	}
-	if len(files) == 0 {
-		return c.NoContent(http.StatusNotFound)
+		slog.Error("Error getting metadata from table", "err", err, "errorMessage", err.Error(), "filename", name)
+		if err.Error() == "sql: no rows in result set" {
+			return c.JSON(http.StatusNotFound, `{"error": "File not found"}`)
+		} else {
+			return c.JSON(http.StatusInternalServerError, `{"error": "Error getting metadata"}`)
+		}
 	}
 
-	return c.JSON(http.StatusOK, files)
+	return c.JSON(http.StatusOK, item)
 }
 
 // e.GET("/files", listFiles)
 func listFiles(c echo.Context) error {
-	files, err := metadataTable.Scan()
+	files, err := listFilesInTable()
 	if err != nil {
 		slog.Error("Error scanning metadata table", "err", err)
 		return c.JSON(http.StatusInternalServerError, `{"error": "Error listing files"}`)
@@ -131,27 +135,27 @@ func listFiles(c echo.Context) error {
 }
 
 // e.GET("/files/search", searchFiles)
-// func searchFiles(c echo.Context) error {
-// 	tag := c.QueryParam("tag")
-// 	// search for the tag in the uploadedFiles
-// 	var foundFiles []FileMetadata
-// 	for _, file := range uploadedFiles.Files {
-// 		for _, t := range file.Tags {
-// 			if t == tag {
-// 				foundFiles = append(foundFiles, file)
-// 				break
-// 			}
-// 		}
-// 	}
-// 	if len(foundFiles) == 0 {
-// 		return c.NoContent(http.StatusNoContent)
-// 	} else {
-// 		return c.JSON(http.StatusOK, foundFiles)
-// 	}
-// }
+func searchFiles(c echo.Context) error {
+	tag := c.QueryParam("tag")
+	// search for the tag in the uploadedFiles
+	foundFiles, err := queryTags(tag)
+	if err != nil {
+		slog.Error("Error querying metadata table", "err", err)
+		return c.JSON(http.StatusInternalServerError, `{"error": "Error searching files"}`)
+	}
+	if len(foundFiles) == 0 {
+		return c.NoContent(http.StatusNoContent)
+	} else {
+		return c.JSON(http.StatusOK, foundFiles)
+	}
+}
 
 func main() {
 	loadConfig("conf.json")
+	err := connectDatabase()
+	if err != nil {
+		panic(err)
+	}
 	createClientConnections()
 	e := echo.New()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -185,7 +189,7 @@ func main() {
 	// e.PATCH("/file/:name", updateFileTags)
 	e.POST("/file/upload", saveFile)
 	e.GET("/files", listFiles)
-	// e.GET("/files/search", searchFiles)
+	e.GET("/files/search", searchFiles)
 
 	e.Logger.Fatal(e.Start(":1234"))
 }
