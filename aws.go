@@ -52,7 +52,17 @@ func createClientConnections() {
 }
 
 func setupS3(cfg aws.Config) {
-	client := s3.NewFromConfig(cfg)
+	var client *s3.Client
+	if conf.AwsEndpoint == "DEFAULT" {
+		slog.Info("Using default S3 endpoint")
+		client = s3.NewFromConfig(cfg)
+	} else {
+		slog.Info("Using localstack S3 endpoint")
+		client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+			o.BaseEndpoint = &conf.AwsEndpoint
+			o.Region = conf.AwsRegion
+		})
+	}
 	bucket := os.Getenv("S3_BUCKET")
 	s3Bucket := &S3FilesBucket{S3Client: client, BucketName: bucket}
 	filesBucket = *s3Bucket

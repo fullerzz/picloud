@@ -1,3 +1,5 @@
 {
-    "filePrefix": "./uploads/"
+    "filePrefix": "./uploads/",
+    "awsEndpoint": "http://127.0.0.1:4566",
+    "awsRegion": "us-west-1"
 }

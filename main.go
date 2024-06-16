@@ -25,7 +25,9 @@ type FileUpload struct {
 }
 
 type Configuration struct {
-	FilePrefix string
+	FilePrefix  string
+	AwsEndpoint string
+	AwsRegion   string
 }
 
 var conf Configuration
@@ -39,6 +41,7 @@ func loadConfig(confFileName string) {
 	if err != nil {
 		panic(err)
 	}
+	slog.Info("Configuration loaded", "config", conf)
 }
 
 // e.POST("/file/upload", saveFile)
