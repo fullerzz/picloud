@@ -50,7 +50,7 @@ func addMetadataToTable(metadata *FileMetadataRecord) error {
 	return err
 }
 
-func updateCacheDetails(metadata *FileMetadataRecord) error {
+func updateCacheDetailsInTable(metadata *FileMetadataRecord) error {
 	tx, err := DB.Begin()
 	if err != nil {
 		return err

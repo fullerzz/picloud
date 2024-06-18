@@ -21,8 +21,8 @@ func getLocalFile(filemetadata *FileMetadataRecord) ([]byte, error) {
 }
 
 func saveFileLocally(filemetadata *FileMetadataRecord, content []byte) error {
-	// TODO: Build string from filemetadata.LocalPath and figure out where local files are stored on server
-	file, err := os.Create(*filemetadata.LocalPath) // FIXME: I don't think the LocalPath field is populated anywhere yet
+	localPath := conf.FilePrefix + filemetadata.FileName
+	file, err := os.Create(localPath)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func saveFileLocally(filemetadata *FileMetadataRecord, content []byte) error {
 
 	filemetadata.CacheTimestamp = getTimestamp()
 	filemetadata.LocalPath = strPtr(file.Name())
-	err = updateCacheDetails(filemetadata)
+	err = updateCacheDetailsInTable(filemetadata)
 	return err
 }
 
