@@ -91,18 +91,36 @@ func getFile(c echo.Context) error {
 		return err
 	}
 
-	objectKey, err := getObjectKey(filename)
+	// Retrieve metadata from table
+	item, err := getFileMetadataFromTable(filename)
 	if err != nil {
-		slog.Error("Error getting object key from metadata table", "err", err, "filename", filename)
-		return c.String(http.StatusInternalServerError, "Error getting object key from metadata table")
+		slog.Error("Error getting metadata from table", "err", err, "errorMessage", err.Error(), "filename", filename)
+		if err.Error() == "sql: no rows in result set" {
+			return c.JSON(http.StatusNotFound, `{"error": "File not found"}`)
+		} else {
+			return c.JSON(http.StatusInternalServerError, `{"error": "Error getting metadata"}`)
+		}
 	}
 
-	fileContent, err := filesBucket.DownloadFile(objectKey)
+	if isStoredLocally(item) {
+		fileContent, err := getLocalFile(item)
+		if err != nil {
+			slog.Error("Error reading local file", "err", err)
+			return c.String(http.StatusInternalServerError, "Error reading local file")
+		}
+		return c.Blob(http.StatusOK, http.DetectContentType(fileContent), fileContent)
+	}
+
+	fileContent, err := filesBucket.DownloadFile(item.ObjectKey)
 	if err != nil {
 		slog.Error("Error downloading file from S3", "err", err)
 		return c.String(http.StatusInternalServerError, "Error downloading file from S3")
 	}
-
+	// TODO: convert to goroutine to save file locally and update metadata record
+	err = saveFileLocally(item, fileContent)
+	if err != nil {
+		slog.Error("Error saving file locally", "err", err)
+	}
 	return c.Blob(http.StatusOK, http.DetectContentType(fileContent), fileContent)
 }
 
