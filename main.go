@@ -1,51 +1,37 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"image/jpeg"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 
-	"github.com/Kagami/go-avif"
+	_ "github.com/mattn/go-sqlite3"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
-type Tags struct {
-	Tags []string `json:"tags"`
-}
-
 type FileUpload struct {
-	Name    string   `json:"name"`
-	Size    int      `json:"size"`
-	Content []byte   `json:"content"`
-	Tags    []string `json:"tags"`
-}
-
-type FileMetadata struct {
-	Name string   `json:"name"`
-	Tags []string `json:"tags"`
-	Link string   `json:"link"`
-}
-
-type UploadedFiles struct {
-	Files []FileMetadata `json:"files"`
+	Name    string `json:"name"`
+	Size    int    `json:"size"`
+	Content []byte `json:"content"`
+	Tags    string `json:"tags"`
 }
 
 type Configuration struct {
-	FilePrefix string
+	FilePrefix  string
+	AwsEndpoint string
+	AwsRegion   string
 }
 
 var conf Configuration
-
-// global var initialized before API to store info on the server's uploaded files
-var uploadedFiles UploadedFiles
+var filesBucket S3FilesBucket
 
 func loadConfig(confFileName string) {
 	file, _ := os.Open(confFileName)
@@ -55,48 +41,7 @@ func loadConfig(confFileName string) {
 	if err != nil {
 		panic(err)
 	}
-}
-
-func loadFileMetadata(metadataPath string) UploadedFiles {
-	var files UploadedFiles
-	if _, err := os.Stat(metadataPath); err == nil {
-		data, err := os.ReadFile(metadataPath)
-		if err != nil {
-			panic(err)
-		}
-		err = json.Unmarshal(data, &files)
-		if err != nil {
-			panic(err)
-		}
-	} else if errors.Is(err, os.ErrNotExist) {
-		// create the file if it doesn't exist
-		_, err := os.Create(metadataPath)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		// panic if error isn't caused by missing file
-		panic(err)
-	}
-
-	return files
-}
-
-func writeFileMetadata() {
-	data, err := json.Marshal(uploadedFiles)
-	if err != nil {
-		slog.Error("Error marshalling metadata")
-		panic(err)
-	}
-	err = os.WriteFile("metadata.json", data, 0644)
-	if err != nil {
-		slog.Error("Error writing metadata")
-		panic(err)
-	}
-}
-
-func buildLink(rawFilename string) string {
-	return fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(rawFilename))
+	slog.Info("Configuration loaded", "config", conf)
 }
 
 // e.POST("/file/upload", saveFile)
@@ -116,147 +61,116 @@ func saveFile(c echo.Context) error {
 	}
 	defer src.Close()
 
-	// Destination
-	filePath := fmt.Sprintf("%s%s", conf.FilePrefix, file.Filename)
-	slog.Info(fmt.Sprintf("Saving file to %s", filePath))
-	dst, err := os.Create(filePath)
-	if err != nil {
+	buf := bytes.NewBuffer(nil)
+	if _, err := io.Copy(buf, src); err != nil {
+		slog.Error("Error copying file: %s", "err", err)
 		return err
 	}
-	defer dst.Close()
+	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"][0]} // TODO: handle multiple tags
 
-	// Copy
-	if _, err = io.Copy(dst, src); err != nil {
-		slog.Error("Error copying file")
+	objectKey, err := filesBucket.UploadFile(fileUpload)
+	if err != nil {
+		slog.Error("Error uploading file to S3: %s", "err", err)
 		return err
 	}
-	// Extract tags from form
-	tags := form.Value["tags"]
-	uploadedFiles.Files = append(uploadedFiles.Files, FileMetadata{Name: file.Filename, Tags: tags, Link: buildLink(file.Filename)})
-	slog.Info("Updating file metadata")
-	go writeFileMetadata()
-	slog.Info("Triggering creation of alt sizes")
-	go createAltSizes(filePath)
-	slog.Info("Returning success message")
+
+	err = addMetadataToTable(&FileMetadataRecord{
+		FileName:        fileUpload.Name,
+		ObjectKey:       objectKey,
+		Sha256:          getSha256Checksum(&fileUpload.Content),
+		UploadTimestamp: getTimestamp(),
+		Tags:            fileUpload.Tags,
+		LocalPath:       nil,
+		CacheTimestamp:  0,
+	})
+	if err != nil {
+		slog.Error("Error writing metadata to table, but file was successfully uploaded to S3", "err", err, "objectKey", objectKey)
+		return err
+	}
+
 	return c.String(http.StatusOK, fmt.Sprintf("File %s uploaded successfully!", file.Filename))
-}
-
-// e.PATCH("/file/:name", updateFileTags)
-func updateFileTags(c echo.Context) error {
-	// extract tags from request
-	var tags Tags
-	err := c.Bind(&tags)
-	if err != nil {
-		return c.String(http.StatusBadRequest, "Invalid request")
-	}
-	// decode the name
-	encodedName := c.Param("name")
-	name, err := url.QueryUnescape(encodedName)
-	if err != nil {
-		return err
-	}
-	// get the file from the uploadedFiles
-	var file *FileMetadata
-	for i, f := range uploadedFiles.Files {
-		if f.Name == name {
-			file = &uploadedFiles.Files[i]
-			break
-		}
-	}
-	if file == nil {
-		return c.String(http.StatusNotFound, "File not found")
-	}
-	file.Tags = append(file.Tags, tags.Tags...)
-	return c.String(http.StatusOK, "File updated")
 }
 
 // e.GET("/file/:name", getFile)
 func getFile(c echo.Context) error {
 	encodedName := c.Param("name")
-	name, err := url.QueryUnescape(encodedName)
+	filename, err := url.QueryUnescape(encodedName)
 	if err != nil {
 		return err
 	}
 
-	avifFmt := c.QueryParam("avif")
-	if avifFmt == "true" {
-		return getAvif(c)
-	} else {
-		return c.File(fmt.Sprintf("%s%s", conf.FilePrefix, name))
+	// Retrieve metadata from table
+	item, err := getFileMetadataFromTable(filename)
+	if err != nil {
+		slog.Error("Error getting metadata from table", "err", err, "errorMessage", err.Error(), "filename", filename)
+		if err.Error() == "sql: no rows in result set" {
+			return c.JSON(http.StatusNotFound, `{"error": "File not found"}`)
+		} else {
+			return c.JSON(http.StatusInternalServerError, `{"error": "Error getting metadata"}`)
+		}
 	}
+
+	if isStoredLocally(item) {
+		fileContent, err := getLocalFile(item)
+		if err != nil {
+			slog.Error("Error reading local file", "err", err)
+			return c.String(http.StatusInternalServerError, "Error reading local file")
+		}
+		return c.Blob(http.StatusOK, http.DetectContentType(fileContent), fileContent)
+	}
+
+	fileContent, err := filesBucket.DownloadFile(item.ObjectKey)
+	if err != nil {
+		slog.Error("Error downloading file from S3", "err", err)
+		return c.String(http.StatusInternalServerError, "Error downloading file from S3")
+	}
+	// TODO: convert to goroutine to save file locally and update metadata record
+	err = saveFileLocally(item, fileContent)
+	if err != nil {
+		slog.Error("Error saving file locally", "err", err)
+	}
+	return c.Blob(http.StatusOK, http.DetectContentType(fileContent), fileContent)
 }
 
-func getAvif(c echo.Context) error {
+// e.GET("/file/:name/metadata", getFileMetadata)
+func getFileMetadata(c echo.Context) error {
 	encodedName := c.Param("name")
 	name, err := url.QueryUnescape(encodedName)
 	if err != nil {
 		return err
 	}
+	item, err := getFileMetadataFromTable(name)
 
-	// check if avif file already exists and return it if it does
-	if _, err := os.Stat(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name)); err == nil {
-		slog.Info("Found existing AVIF file")
-		return c.File(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name))
-	}
-
-	// check if the src file exists
-	if _, err := os.Stat(fmt.Sprintf("%s%s", conf.FilePrefix, name)); err != nil {
-		slog.Info("File not found")
-		return c.String(http.StatusNotFound, "File not found")
-	}
-	slog.Info("Src file found")
-
-	// open the srcFile
-	srcFile, err := os.Open(fmt.Sprintf("%s%s", conf.FilePrefix, name))
 	if err != nil {
-		return err
-	}
-	slog.Info("File opened")
-	defer srcFile.Close()
-
-	// create new avif file
-	dstFile, err := os.Create(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name))
-	if err != nil {
-		return err
-	}
-	slog.Debug(fmt.Sprintf("Created file %s%s.avif", conf.FilePrefix, name))
-
-	// decode the src file
-	img, err := jpeg.Decode(srcFile)
-	if err != nil {
-		slog.Error("Error decoding image")
-		return err
+		slog.Error("Error getting metadata from table", "err", err, "errorMessage", err.Error(), "filename", name)
+		if err.Error() == "sql: no rows in result set" {
+			return c.JSON(http.StatusNotFound, `{"error": "File not found"}`)
+		} else {
+			return c.JSON(http.StatusInternalServerError, `{"error": "Error getting metadata"}`)
+		}
 	}
 
-	// encode the img as avif file
-	err = avif.Encode(dstFile, img, nil)
-	if err != nil {
-		slog.Error("Error encoding AVIF image")
-		return err
-	}
-	slog.Debug("AVIF image encoded successfully")
-
-	// return the file
-	return c.File(fmt.Sprintf("%s%s.avif", conf.FilePrefix, name))
+	return c.JSON(http.StatusOK, item)
 }
 
 // e.GET("/files", listFiles)
 func listFiles(c echo.Context) error {
-	return c.JSON(http.StatusOK, uploadedFiles)
+	files, err := listFilesInTable()
+	if err != nil {
+		slog.Error("Error scanning metadata table", "err", err)
+		return c.JSON(http.StatusInternalServerError, `{"error": "Error listing files"}`)
+	}
+	return c.JSON(http.StatusOK, files)
 }
 
 // e.GET("/files/search", searchFiles)
 func searchFiles(c echo.Context) error {
 	tag := c.QueryParam("tag")
 	// search for the tag in the uploadedFiles
-	var foundFiles []FileMetadata
-	for _, file := range uploadedFiles.Files {
-		for _, t := range file.Tags {
-			if t == tag {
-				foundFiles = append(foundFiles, file)
-				break
-			}
-		}
+	foundFiles, err := queryTags(tag)
+	if err != nil {
+		slog.Error("Error querying metadata table", "err", err)
+		return c.JSON(http.StatusInternalServerError, `{"error": "Error searching files"}`)
 	}
 	if len(foundFiles) == 0 {
 		return c.NoContent(http.StatusNoContent)
@@ -267,8 +181,11 @@ func searchFiles(c echo.Context) error {
 
 func main() {
 	loadConfig("conf.json")
-	// Load information about uploaded files
-	uploadedFiles = loadFileMetadata("metadata.json")
+	err := connectDatabase()
+	if err != nil {
+		panic(err)
+	}
+	createClientConnections()
 	e := echo.New()
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
@@ -297,7 +214,8 @@ func main() {
 		return c.String(http.StatusOK, "Hello, World!")
 	})
 	e.GET("/file/:name", getFile)
-	e.PATCH("/file/:name", updateFileTags)
+	e.GET("/file/:name/metadata", getFileMetadata)
+	// e.PATCH("/file/:name", updateFileTags)
 	e.POST("/file/upload", saveFile)
 	e.GET("/files", listFiles)
 	e.GET("/files/search", searchFiles)
