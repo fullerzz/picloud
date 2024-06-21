@@ -84,7 +84,7 @@ func saveFile(c echo.Context) error {
 		CacheTimestamp:  0,
 	})
 	if err != nil {
-		slog.Error("Error writing metadata to table", "err", err)
+		slog.Error("Error writing metadata to table, but file was successfully uploaded to S3", "err", err, "objectKey", objectKey)
 		return err
 	}
 
