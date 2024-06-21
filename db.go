@@ -11,11 +11,13 @@ import (
 )
 
 type FileMetadataRecord struct {
-	FileName        string `json:"file_name"`
-	ObjectKey       string `json:"object_key"`
-	Sha256          string `json:"file_sha256"`
-	UploadTimestamp int64  `json:"upload_timestamp"`
-	Tags            string `json:"tags"` // comma separated tags
+	FileName        string  `json:"file_name"`
+	ObjectKey       string  `json:"object_key"`
+	Sha256          string  `json:"file_sha256"`
+	UploadTimestamp int64   `json:"upload_timestamp"`
+	Tags            string  `json:"tags"` // comma separated tags
+	LocalPath       *string `json:"local_path"`
+	CacheTimestamp  int64   `json:"cache_timestamp"`
 }
 
 var DB *sql.DB
@@ -35,12 +37,30 @@ func addMetadataToTable(metadata *FileMetadataRecord) error {
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare("INSERT INTO file_metadata (file_name, object_key, file_sha256, upload_timestamp, tags) VALUES (?, ?, ?, ?, ?)")
+	stmt, err := tx.Prepare("INSERT INTO file_metadata (file_name, object_key, file_sha256, upload_timestamp, tags, local_path, cache_timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)")
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
-	_, err = stmt.Exec(metadata.FileName, metadata.ObjectKey, metadata.Sha256, metadata.UploadTimestamp, metadata.Tags)
+	_, err = stmt.Exec(metadata.FileName, metadata.ObjectKey, metadata.Sha256, metadata.UploadTimestamp, metadata.Tags, metadata.LocalPath, metadata.CacheTimestamp)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
+	return err
+}
+
+func updateCacheDetailsInTable(metadata *FileMetadataRecord) error {
+	tx, err := DB.Begin()
+	if err != nil {
+		return err
+	}
+	stmt, err := tx.Prepare("UPDATE file_metadata SET local_path = ?, cache_timestamp = ? WHERE file_name = ?")
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(*metadata.LocalPath, metadata.CacheTimestamp, metadata.FileName)
 	if err != nil {
 		return err
 	}
@@ -49,7 +69,7 @@ func addMetadataToTable(metadata *FileMetadataRecord) error {
 }
 
 func listFilesInTable() ([]FileMetadataRecord, error) {
-	rows, err := DB.Query("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata")
+	rows, err := DB.Query("SELECT file_name, object_key, file_sha256, upload_timestamp, tags, local_path, cache_timestamp FROM file_metadata")
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +78,7 @@ func listFilesInTable() ([]FileMetadataRecord, error) {
 	var files []FileMetadataRecord
 	for rows.Next() {
 		var file FileMetadataRecord
-		err = rows.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
+		err = rows.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags, &file.LocalPath, &file.CacheTimestamp)
 		if err != nil {
 			return nil, err
 		}
@@ -94,17 +114,6 @@ func queryTags(tagName string) ([]FileMetadataRecord, error) {
 		files = append(files, file)
 	}
 	return files, nil
-}
-
-func getObjectKey(filename string) (string, error) {
-	row := DB.QueryRow("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata WHERE file_name = ?", filename)
-	var file FileMetadataRecord
-	err := row.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
-	if err != nil {
-		return "", err
-	}
-	return file.ObjectKey, nil
-
 }
 
 func getSha256Checksum(fileContent *[]byte) string {
