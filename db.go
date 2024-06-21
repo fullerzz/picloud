@@ -69,7 +69,7 @@ func updateCacheDetailsInTable(metadata *FileMetadataRecord) error {
 }
 
 func listFilesInTable() ([]FileMetadataRecord, error) {
-	rows, err := DB.Query("SELECT file_name, object_key, file_sha256, upload_timestamp, tags FROM file_metadata")
+	rows, err := DB.Query("SELECT file_name, object_key, file_sha256, upload_timestamp, tags, local_path, cache_timestamp FROM file_metadata")
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func listFilesInTable() ([]FileMetadataRecord, error) {
 	var files []FileMetadataRecord
 	for rows.Next() {
 		var file FileMetadataRecord
-		err = rows.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags)
+		err = rows.Scan(&file.FileName, &file.ObjectKey, &file.Sha256, &file.UploadTimestamp, &file.Tags, &file.LocalPath, &file.CacheTimestamp)
 		if err != nil {
 			return nil, err
 		}
