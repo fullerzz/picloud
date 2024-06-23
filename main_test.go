@@ -32,7 +32,7 @@ func (m *MockedS3FilesBucket) GetObjectFromS3(key string, api S3GetObjectAPI) ([
 func TestLoadConfig(t *testing.T) {
 	loadConfig("testdata/conf.json")
 	if assert.NotEmpty(t, conf) {
-		assert.Equal(t, "uploads/", conf.FilePrefix)
+		assert.Equal(t, "./uploads/", conf.FilePrefix)
 	}
 }
 
@@ -46,7 +46,13 @@ func TestLoadConfig(t *testing.T) {
 // }
 
 func TestSaveFile(t *testing.T) {
-	// TODO: Mock S3FilesBucket for tests
+	// test setup - mock S3 and setup test database
+	loadConfig("testdata/conf.json")
+	err := connectDatabase("file_metadata_test")
+	if err != nil {
+		fmt.Println("Error connecting to database")
+		panic(err)
+	}
 	filesBucket := new(MockedS3FilesBucket)
 	filesBucket.On("UploadObjectToS3", mock.Anything, mock.Anything).Return("baxter.jpg", nil)
 
@@ -56,7 +62,7 @@ func TestSaveFile(t *testing.T) {
 	buf := new(bytes.Buffer)
 	w := multipart.NewWriter(buf)
 	fw, _ := w.CreateFormField("name")
-	_, err := fw.Write([]byte("baxter.jpg"))
+	_, err = fw.Write([]byte("baxter.jpg"))
 	if err != nil {
 		fmt.Println("Error writing form field")
 		panic(err)

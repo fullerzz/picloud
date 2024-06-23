@@ -1,5 +1,5 @@
 {
-    "filePrefix": "uploads/",
+    "filePrefix": "./uploads/",
     "awsEndpoint": "DEFAULT",
     "awsRegion": "us-west-1",
     "tableName": "file_metadata_test"
