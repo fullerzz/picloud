@@ -28,6 +28,7 @@ type Configuration struct {
 	FilePrefix  string
 	AwsEndpoint string
 	AwsRegion   string
+	TableName   string
 }
 
 var conf Configuration
@@ -82,7 +83,7 @@ func saveFile(c echo.Context) error {
 		Tags:            fileUpload.Tags,
 		LocalPath:       nil,
 		CacheTimestamp:  0,
-	})
+	}, conf.TableName)
 	if err != nil {
 		slog.Error("Error writing metadata to table, but file was successfully uploaded to S3", "err", err, "objectKey", objectKey)
 		return err
@@ -100,7 +101,7 @@ func getFile(c echo.Context) error {
 	}
 
 	// Retrieve metadata from table
-	item, err := getFileMetadataFromTable(filename)
+	item, err := getFileMetadataFromTable(filename, conf.TableName)
 	if err != nil {
 		slog.Error("Error getting metadata from table", "err", err, "errorMessage", err.Error(), "filename", filename)
 		if err.Error() == "sql: no rows in result set" {
@@ -139,7 +140,7 @@ func getFileMetadata(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	item, err := getFileMetadataFromTable(name)
+	item, err := getFileMetadataFromTable(name, conf.TableName)
 
 	if err != nil {
 		slog.Error("Error getting metadata from table", "err", err, "errorMessage", err.Error(), "filename", name)
@@ -155,7 +156,7 @@ func getFileMetadata(c echo.Context) error {
 
 // e.GET("/files", listFiles)
 func listFiles(c echo.Context) error {
-	files, err := listFilesInTable()
+	files, err := listFilesInTable(conf.TableName)
 	if err != nil {
 		slog.Error("Error scanning metadata table", "err", err)
 		return c.JSON(http.StatusInternalServerError, `{"error": "Error listing files"}`)
@@ -167,7 +168,7 @@ func listFiles(c echo.Context) error {
 func searchFiles(c echo.Context) error {
 	tag := c.QueryParam("tag")
 	// search for the tag in the uploadedFiles
-	foundFiles, err := queryTags(tag)
+	foundFiles, err := queryTags(tag, conf.TableName)
 	if err != nil {
 		slog.Error("Error querying metadata table", "err", err)
 		return c.JSON(http.StatusInternalServerError, `{"error": "Error searching files"}`)
@@ -181,7 +182,7 @@ func searchFiles(c echo.Context) error {
 
 func main() {
 	loadConfig("conf.json")
-	err := connectDatabase()
+	err := connectDatabase(conf.TableName)
 	if err != nil {
 		panic(err)
 	}
