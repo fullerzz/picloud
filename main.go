@@ -83,6 +83,7 @@ func saveFile(c echo.Context) error {
 		Tags:            fileUpload.Tags,
 		LocalPath:       nil,
 		CacheTimestamp:  0,
+		Link:            fmt.Sprintf("http://pi.local:1234/file/%s", url.QueryEscape(fileUpload.Name)),
 	}, conf.TableName)
 	if err != nil {
 		slog.Error("Error writing metadata to table, but file was successfully uploaded to S3", "err", err, "objectKey", objectKey)
