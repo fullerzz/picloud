@@ -13,9 +13,23 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+type S3PutObjectAPI interface {
+	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+}
+
 type S3FilesBucket struct {
 	S3Client   *s3.Client
 	BucketName string
+}
+
+func UploadObject(file *FileUpload, api S3PutObjectAPI, bucketName string) (string, error) {
+	key := file.Name
+	_, err := api.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(file.Content),
+	})
+	return key, err
 }
 
 func (bucket *S3FilesBucket) UploadFile(file *FileUpload) (string, error) {
