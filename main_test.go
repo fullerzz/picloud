@@ -11,8 +11,23 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+type MockedS3FilesBucket struct {
+	mock.Mock
+}
+
+func (m *MockedS3FilesBucket) UploadObjectToS3(file *FileUpload, api S3PutObjectAPI) (string, error) {
+	args := m.Called(file, api)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockedS3FilesBucket) GetObjectFromS3(key string, api S3GetObjectAPI) ([]byte, error) {
+	args := m.Called(key, api)
+	return args.Get(0).([]byte), args.Error(1)
+}
 
 func TestLoadConfig(t *testing.T) {
 	loadConfig("testdata/conf.json")
@@ -32,6 +47,9 @@ func TestLoadConfig(t *testing.T) {
 
 func TestSaveFile(t *testing.T) {
 	// TODO: Mock S3FilesBucket for tests
+	filesBucket := new(MockedS3FilesBucket)
+	filesBucket.On("UploadObjectToS3", mock.Anything, mock.Anything).Return("baxter.jpg", nil)
+
 	e := echo.New()
 
 	// create a multipart form for test request
