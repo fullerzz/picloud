@@ -26,7 +26,7 @@ type S3FilesBucket struct {
 	BucketName string
 }
 
-func UploadObject(file *FileUpload, api S3PutObjectAPI, bucketName string) (string, error) {
+func UploadObjectToS3(file *FileUpload, api S3PutObjectAPI, bucketName string) (string, error) {
 	key := file.Name
 	_, err := api.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
@@ -39,30 +39,6 @@ func UploadObject(file *FileUpload, api S3PutObjectAPI, bucketName string) (stri
 func GetObjectFromS3(key string, api S3GetObjectAPI, bucketName string) ([]byte, error) {
 	result, err := api.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
-		Key:    aws.String(key),
-	})
-	if err != nil {
-		fmt.Printf("Error downloading file: %s\n", err)
-		return nil, err
-	}
-	defer result.Body.Close()
-	fileContents, err := io.ReadAll(result.Body)
-	return fileContents, err
-}
-
-func (bucket *S3FilesBucket) UploadFile(file *FileUpload) (string, error) {
-	key := file.Name
-	_, err := bucket.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucket.BucketName),
-		Key:    aws.String(key),
-		Body:   bytes.NewReader(file.Content),
-	})
-	return key, err
-}
-
-func (bucket *S3FilesBucket) DownloadFile(key string) ([]byte, error) {
-	result, err := bucket.S3Client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucket.BucketName),
 		Key:    aws.String(key),
 	})
 	if err != nil {

@@ -70,7 +70,7 @@ func TestUploadObjectToS3(t *testing.T) {
 
 	for i, tt := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			objectKey, err := UploadObject(mockFileUpload, tt.client(t), tt.bucket)
+			objectKey, err := UploadObjectToS3(mockFileUpload, tt.client(t), tt.bucket)
 			if err != nil {
 				t.Fatalf("expect no error, got %v", err)
 			}

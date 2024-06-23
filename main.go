@@ -68,7 +68,8 @@ func saveFile(c echo.Context) error {
 	}
 	fileUpload := &FileUpload{Name: file.Filename, Size: len(buf.Bytes()), Content: buf.Bytes(), Tags: form.Value["tags"][0]} // TODO: handle multiple tags
 
-	objectKey, err := filesBucket.UploadFile(fileUpload)
+	// objectKey, err := filesBucket.UploadFile(fileUpload)
+	objectKey, err := UploadObjectToS3(fileUpload, filesBucket.S3Client, filesBucket.BucketName)
 	if err != nil {
 		slog.Error("Error uploading file to S3: %s", "err", err)
 		return err
@@ -119,7 +120,7 @@ func getFile(c echo.Context) error {
 		return c.Blob(http.StatusOK, http.DetectContentType(fileContent), fileContent)
 	}
 
-	fileContent, err := filesBucket.DownloadFile(item.ObjectKey)
+	fileContent, err := GetObjectFromS3(item.ObjectKey, filesBucket.S3Client, filesBucket.BucketName)
 	if err != nil {
 		slog.Error("Error downloading file from S3", "err", err)
 		return c.String(http.StatusInternalServerError, "Error downloading file from S3")
