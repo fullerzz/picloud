@@ -17,6 +17,10 @@ type S3PutObjectAPI interface {
 	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
 }
 
+type S3GetObjectAPI interface {
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+}
+
 type S3FilesBucket struct {
 	S3Client   *s3.Client
 	BucketName string
@@ -30,6 +34,20 @@ func UploadObject(file *FileUpload, api S3PutObjectAPI, bucketName string) (stri
 		Body:   bytes.NewReader(file.Content),
 	})
 	return key, err
+}
+
+func GetObjectFromS3(key string, api S3GetObjectAPI, bucketName string) ([]byte, error) {
+	result, err := api.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		fmt.Printf("Error downloading file: %s\n", err)
+		return nil, err
+	}
+	defer result.Body.Close()
+	fileContents, err := io.ReadAll(result.Body)
+	return fileContents, err
 }
 
 func (bucket *S3FilesBucket) UploadFile(file *FileUpload) (string, error) {
