@@ -31,8 +31,6 @@ uploads/
 picloud
 *.db
 set_env_vars_and_run.sh
-# Keep config
-!conf.json
 
 # Keep testdata
 !testdata/baxter.jpg

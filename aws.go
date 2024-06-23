@@ -13,24 +13,33 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
+type S3PutObjectAPI interface {
+	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
+}
+
+type S3GetObjectAPI interface {
+	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
+}
+
+var S3Client *s3.Client
+
 type S3FilesBucket struct {
-	S3Client   *s3.Client
 	BucketName string
 }
 
-func (bucket *S3FilesBucket) UploadFile(file *FileUpload) (string, error) {
+func (s3Bucket *S3FilesBucket) UploadObjectToS3(file *FileUpload, api S3PutObjectAPI) (string, error) {
 	key := file.Name
-	_, err := bucket.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucket.BucketName),
+	_, err := api.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(s3Bucket.BucketName),
 		Key:    aws.String(key),
 		Body:   bytes.NewReader(file.Content),
 	})
 	return key, err
 }
 
-func (bucket *S3FilesBucket) DownloadFile(key string) ([]byte, error) {
-	result, err := bucket.S3Client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucket.BucketName),
+func (s3Bucket *S3FilesBucket) GetObjectFromS3(key string, api S3GetObjectAPI) ([]byte, error) {
+	result, err := api.GetObject(context.TODO(), &s3.GetObjectInput{
+		Bucket: aws.String(s3Bucket.BucketName),
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -52,18 +61,17 @@ func createClientConnections() {
 }
 
 func setupS3(cfg aws.Config) {
-	var client *s3.Client
 	if conf.AwsEndpoint == "DEFAULT" {
 		slog.Info("Using default S3 endpoint")
-		client = s3.NewFromConfig(cfg)
+		S3Client = s3.NewFromConfig(cfg)
 	} else {
 		slog.Info("Using localstack S3 endpoint")
-		client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+		S3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.BaseEndpoint = &conf.AwsEndpoint
 			o.Region = conf.AwsRegion
 		})
 	}
 	bucket := os.Getenv("S3_BUCKET")
-	s3Bucket := &S3FilesBucket{S3Client: client, BucketName: bucket}
+	s3Bucket := &S3FilesBucket{BucketName: bucket}
 	filesBucket = *s3Bucket
 }

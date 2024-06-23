@@ -34,7 +34,7 @@ func saveFileLocally(filemetadata *FileMetadataRecord, content []byte) error {
 
 	filemetadata.CacheTimestamp = getTimestamp()
 	filemetadata.LocalPath = strPtr(file.Name())
-	err = updateCacheDetailsInTable(filemetadata)
+	err = updateCacheDetailsInTable(filemetadata, conf.TableName)
 	return err
 }
 
