@@ -29,7 +29,8 @@ func connectDatabase() error {
 	}
 
 	DB = db
-	return nil
+	_, err = DB.Exec("CREATE TABLE IF NOT EXISTS file_metadata (file_name TEXT NOT NULL PRIMARY KEY UNIQUE, object_key TEXT UNIQUE NOT NULL, file_sha256 TEXT NOT NULL, upload_timestamp INTEGER NOT NULL, tags TEXT, local_path TEXT, cache_timestamp INT) STRICT")
+	return err
 }
 
 func addMetadataToTable(metadata *FileMetadataRecord) error {
