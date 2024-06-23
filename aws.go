@@ -21,24 +21,25 @@ type S3GetObjectAPI interface {
 	GetObject(ctx context.Context, params *s3.GetObjectInput, optFns ...func(*s3.Options)) (*s3.GetObjectOutput, error)
 }
 
+var S3Client *s3.Client
+
 type S3FilesBucket struct {
-	S3Client   *s3.Client
 	BucketName string
 }
 
-func UploadObjectToS3(file *FileUpload, api S3PutObjectAPI, bucketName string) (string, error) {
+func (s3Bucket *S3FilesBucket) UploadObjectToS3(file *FileUpload, api S3PutObjectAPI) (string, error) {
 	key := file.Name
 	_, err := api.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(s3Bucket.BucketName),
 		Key:    aws.String(key),
 		Body:   bytes.NewReader(file.Content),
 	})
 	return key, err
 }
 
-func GetObjectFromS3(key string, api S3GetObjectAPI, bucketName string) ([]byte, error) {
+func (s3Bucket *S3FilesBucket) GetObjectFromS3(key string, api S3GetObjectAPI) ([]byte, error) {
 	result, err := api.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String(bucketName),
+		Bucket: aws.String(s3Bucket.BucketName),
 		Key:    aws.String(key),
 	})
 	if err != nil {
@@ -60,18 +61,17 @@ func createClientConnections() {
 }
 
 func setupS3(cfg aws.Config) {
-	var client *s3.Client
 	if conf.AwsEndpoint == "DEFAULT" {
 		slog.Info("Using default S3 endpoint")
-		client = s3.NewFromConfig(cfg)
+		S3Client = s3.NewFromConfig(cfg)
 	} else {
 		slog.Info("Using localstack S3 endpoint")
-		client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+		S3Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
 			o.BaseEndpoint = &conf.AwsEndpoint
 			o.Region = conf.AwsRegion
 		})
 	}
 	bucket := os.Getenv("S3_BUCKET")
-	s3Bucket := &S3FilesBucket{S3Client: client, BucketName: bucket}
+	s3Bucket := &S3FilesBucket{BucketName: bucket}
 	filesBucket = *s3Bucket
 }

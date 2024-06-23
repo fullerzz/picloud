@@ -20,6 +20,7 @@ func (m mockPutObjectAPI) PutObject(ctx context.Context, params *s3.PutObjectInp
 }
 
 func TestUploadObjectToS3(t *testing.T) {
+	mockFilesBucket := &S3FilesBucket{BucketName: "TestBucket"}
 	var mockFileUpload *FileUpload
 
 	// load baxter.jpg into memory
@@ -70,7 +71,7 @@ func TestUploadObjectToS3(t *testing.T) {
 
 	for i, tt := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			objectKey, err := UploadObjectToS3(mockFileUpload, tt.client(t), tt.bucket)
+			objectKey, err := mockFilesBucket.UploadObjectToS3(mockFileUpload, tt.client(t))
 			if err != nil {
 				t.Fatalf("expect no error, got %v", err)
 			}
@@ -86,6 +87,7 @@ func (m mockGetObjectAPI) GetObject(ctx context.Context, params *s3.GetObjectInp
 }
 
 func TestGetObjectFromS3(t *testing.T) {
+	mockFilesBucket := &S3FilesBucket{BucketName: "fooBucket"}
 	cases := []struct {
 		client func(t *testing.T) S3GetObjectAPI
 		bucket string
@@ -122,7 +124,7 @@ func TestGetObjectFromS3(t *testing.T) {
 
 	for i, tt := range cases {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			content, err := GetObjectFromS3(tt.key, tt.client(t), tt.bucket)
+			content, err := mockFilesBucket.GetObjectFromS3(tt.key, tt.client(t))
 			if err != nil {
 				t.Fatalf("expect no error, got %v", err)
 			}
